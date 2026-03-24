@@ -96,7 +96,7 @@ export async function deleteTopic(id) {
   requireData(result, 'Failed to delete topic');
 }
 
-export async function createQuestion({ topicId, prompt, options, correctOption, explanation, questionImages = [] }) {
+export async function createQuestion({ topicId, prompt, options, correctOption, explanation, hint, questionImages = [] }) {
   const images = Array.isArray(questionImages)
     ? questionImages.map((image) => String(image || '').trim()).filter(Boolean).slice(0, 2)
     : [];
@@ -114,6 +114,7 @@ export async function createQuestion({ topicId, prompt, options, correctOption, 
       image_url_1: images[0] || null,
       image_url_2: images[1] || null,
       explanation: explanation || null,
+      hint: hint || null,
     })
     .select('*')
     .single();
@@ -121,7 +122,7 @@ export async function createQuestion({ topicId, prompt, options, correctOption, 
   return requireData(result, 'Failed to create question');
 }
 
-export async function updateQuestion(id, { prompt, options, correctOption, explanation, questionImages = [] }) {
+export async function updateQuestion(id, { prompt, options, correctOption, explanation, hint, questionImages = [] }) {
   const images = Array.isArray(questionImages)
     ? questionImages.map((image) => String(image || '').trim()).filter(Boolean).slice(0, 2)
     : [];
@@ -138,6 +139,7 @@ export async function updateQuestion(id, { prompt, options, correctOption, expla
       image_url_1: images[0] || null,
       image_url_2: images[1] || null,
       explanation: explanation || null,
+      hint: hint || null,
     })
     .eq('id', id)
     .select('*')
@@ -154,7 +156,7 @@ export async function deleteQuestion(id) {
 export async function getQuestionsByTopic(topicId) {
   const result = await supabase
     .from('questions')
-    .select('id, topic_id, prompt, option_a, option_b, option_c, option_d, correct_option, image_url_1, image_url_2, explanation')
+    .select('id, topic_id, prompt, option_a, option_b, option_c, option_d, correct_option, image_url_1, image_url_2, explanation, hint')
     .eq('topic_id', topicId)
     .order('id', { ascending: false });
 

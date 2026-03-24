@@ -12,6 +12,7 @@ import {
   updateQuestionHandler,
   updateSubjectHandler,
   updateTopicHandler,
+  uploadQuestionImageHandler,
 } from '../controllers/subjectController.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validateRequired } from '../middleware/validate.js';
@@ -32,5 +33,7 @@ router.get('/topics/:topicId/questions', requireAuth, listQuestions);
 router.post('/topics/:topicId/questions', requireAuth, validateRequired(['prompt', 'options', 'correctOption']), createQuestionHandler);
 router.put('/questions/:id', requireAuth, validateRequired(['prompt', 'options', 'correctOption']), updateQuestionHandler);
 router.delete('/questions/:id', requireAuth, deleteQuestionHandler);
+
+router.post('/upload/question-image', requireAuth, uploadQuestionImageHandler);
 
 export default router;

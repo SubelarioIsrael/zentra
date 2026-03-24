@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { apiRequest } from '../api/client';
 import { HelperAlert } from '../components/HelperAlert';
 import type { Subject, Topic } from '../types';
@@ -9,6 +9,7 @@ type QuizQuestion = {
   topicName: string;
   subjectName: string;
   imageUrls?: string[];
+  hint?: string;
   options: Record<'A' | 'B' | 'C' | 'D', string>;
 };
 
@@ -24,14 +25,20 @@ export function QuizPage() {
   const [mode, setMode] = useState<'timed' | 'untimed'>('untimed');
   const [durationSeconds, setDurationSeconds] = useState(600);
   const [limit, setLimit] = useState(10);
+  const [shuffle, setShuffle] = useState(false);
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, Feedback>>({});
   const [selectedOptionMap, setSelectedOptionMap] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
   const [result, setResult] = useState<{ score: number; total: number; percent: number } | null>(null);
+  const [questionTimings, setQuestionTimings] = useState<Record<number, number>>({});
+  const [reviewMode, setReviewMode] = useState(false);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
   const [remaining, setRemaining] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const questionStartTime = useRef<number>(0);
 
   useEffect(() => {
     (async () => {
@@ -45,6 +52,8 @@ export function QuizPage() {
       setSelectedTopicIds(allTopics.map((topic) => topic.id));
     })().catch((err) => setError(err.message));
   }, []);
+
+  const currentQuestion = useMemo(() => questions[index], [questions, index]);
 
   useEffect(() => {
     if (!attemptId || mode !== 'timed' || !remaining) return;
@@ -64,7 +73,107 @@ export function QuizPage() {
     return () => window.clearInterval(timer);
   }, [attemptId, mode, remaining]);
 
-  const currentQuestion = useMemo(() => questions[index], [questions, index]);
+  useEffect(() => {
+    if (!attemptId || !currentQuestion) return;
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      const key = e.key.toUpperCase();
+      
+      // A, B, C, D keys to select options
+      if (['A', 'B', 'C', 'D'].includes(key)) {
+        e.preventDefault();
+        const option = key as 'A' | 'B' | 'C' | 'D';
+        const questionFeedback = feedbackMap[currentQuestion.id];
+        
+        // Only allow selection if not already answered
+        if (!questionFeedback) {
+          setSelectedOptionMap((prev) => ({
+            ...prev,
+            [currentQuestion.id]: option,
+          }));
+        }
+      }
+      
+      // Enter key to confirm answer
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const selectedOption = selectedOptionMap[currentQuestion.id];
+        const questionFeedback = feedbackMap[currentQuestion.id];
+        
+        if (selectedOption && !questionFeedback) {
+          answer(selectedOption);
+        }
+      }
+      
+      // Arrow keys to navigate
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setIndex((value) => Math.max(0, value - 1));
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setIndex((value) => Math.min(questions.length - 1, value + 1));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [attemptId, currentQuestion, selectedOptionMap, feedbackMap, questions.length]);
+
+  useEffect(() => {
+    if (!attemptId || !currentQuestion) return;
+    
+    // Record time for previous question when moving to next one
+    if (questionStartTime.current > 0) {
+      const timeSpent = Math.round((Date.now() - questionStartTime.current) / 1000);
+      setQuestionTimings((prev) => ({ ...prev, [currentQuestion.id]: timeSpent }));
+    }
+    
+    // Start timing for new question
+    questionStartTime.current = Date.now();
+  }, [attemptId, currentQuestion?.id]);
+
+  const incorrectQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      const feedback = feedbackMap[q.id];
+      return feedback && !feedback.correct;
+    });
+  }, [questions, feedbackMap]);
+
+  const reviewQuestion = useMemo(() => {
+    return reviewMode ? incorrectQuestions[reviewIndex] : null;
+  }, [reviewMode, incorrectQuestions, reviewIndex]);
+
+  function shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  function shuffleQuestions(quizQuestions: QuizQuestion[]): QuizQuestion[] {
+    if (!shuffle) return quizQuestions;
+
+    return shuffleArray(quizQuestions).map((question) => {
+      const optionKeys = ['A', 'B', 'C', 'D'] as const;
+      const optionValues = optionKeys.map((key) => question.options[key]);
+      const shuffledValues = shuffleArray(optionValues);
+
+      const newOptions: Record<'A' | 'B' | 'C' | 'D', string> = {
+        A: shuffledValues[0],
+        B: shuffledValues[1],
+        C: shuffledValues[2],
+        D: shuffledValues[3],
+      };
+
+      return {
+        ...question,
+        options: newOptions,
+      };
+    });
+  }
 
   async function startQuiz() {
     setError('');
@@ -77,7 +186,7 @@ export function QuizPage() {
     });
 
     setAttemptId(data.attemptId);
-    setQuestions(data.questions);
+    setQuestions(shuffleQuestions(data.questions));
     setIndex(0);
     setFeedbackMap({});
     setSelectedOptionMap({});
@@ -124,7 +233,7 @@ export function QuizPage() {
         <h1 className="text-2xl font-semibold">Quiz</h1>
         <p className="ui-subtitle mt-1">Short, focused rounds with instant feedback.</p>
       </div>
-      <HelperAlert>During quiz: click an option to select it, then press Confirm answer.</HelperAlert>
+      <HelperAlert>During quiz: click an option to select it, then press Confirm answer. <span className="text-xs">Or use A/B/C/D keys + Enter, arrow keys to navigate.</span></HelperAlert>
       {error && <p className="text-red-600">{error}</p>}
 
       {!attemptId && (
@@ -185,6 +294,18 @@ export function QuizPage() {
             </div>
           </div>
 
+          <div className="mt-4 flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={shuffle}
+                onChange={(e) => setShuffle(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span>Shuffle questions & options</span>
+            </label>
+          </div>
+
           <button onClick={startQuiz} className="ui-btn-primary mt-4">
             Start Quiz
           </button>
@@ -214,6 +335,24 @@ export function QuizPage() {
               {currentQuestion.imageUrls?.map((imageUrl) => (
                 <img key={imageUrl} src={imageUrl} alt="Question" className="h-40 w-full rounded-xl object-cover" />
               ))}
+            </div>
+          )}
+
+          {currentQuestion.hint && (
+            <div className="mt-3">
+              {revealedHints.has(currentQuestion.id) ? (
+                <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+                  <p className="font-medium">Hint</p>
+                  <p className="mt-1">{currentQuestion.hint}</p>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setRevealedHints((prev) => new Set([...prev, currentQuestion.id]))}
+                  className="ui-btn-secondary text-sm"
+                >
+                  Show Hint
+                </button>
+              )}
             </div>
           )}
 
@@ -293,12 +432,154 @@ export function QuizPage() {
         </section>
       )}
 
-      {result && (
+      {result && !reviewMode && (
         <section className="ui-card">
-          <h2 className="text-lg font-semibold">Quiz Result</h2>
-          <p className="mt-2 text-muted">
-            Score: {result.score}/{result.total} ({result.percent}%)
+          <h2 className="text-lg font-semibold">Quiz Complete!</h2>
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl bg-indigo-50 p-4 dark:bg-indigo-900/20">
+              <p className="text-sm text-muted">Your Score</p>
+              <p className="mt-1 text-3xl font-bold text-indigo-600 dark:text-indigo-300">
+                {result.score}/{result.total}
+              </p>
+              <p className="mt-1 text-sm font-medium">{result.percent}% Correct</p>
+            </div>
+
+            {Object.keys(questionTimings).length > 0 && (
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                <p className="text-sm font-medium mb-3">Performance Stats</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-muted">Fastest</p>
+                    <p className="font-semibold">{Math.min(...Object.values(questionTimings))}s</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Slowest</p>
+                    <p className="font-semibold">{Math.max(...Object.values(questionTimings))}s</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Average</p>
+                    <p className="font-semibold">
+                      {Math.round(Object.values(questionTimings).reduce((a, b) => a + b, 0) / Object.values(questionTimings).length)}s
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {incorrectQuestions.length > 0 && (
+              <div>
+                <p className="text-sm text-muted mb-2">
+                  {incorrectQuestions.length} question{incorrectQuestions.length !== 1 ? 's' : ''} to review
+                </p>
+                <button
+                  onClick={() => setReviewMode(true)}
+                  className="ui-btn-primary"
+                >
+                  Review Missed Questions
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                setResult(null);
+                setAttemptId(null);
+                setReviewMode(false);
+                setReviewIndex(0);
+              }}
+              className="ui-btn-secondary"
+            >
+              Start New Quiz
+            </button>
+          </div>
+        </section>
+      )}
+
+      {result && reviewMode && reviewQuestion && (
+        <section className="ui-card">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Review: Question {reviewIndex + 1}/{incorrectQuestions.length}</h2>
+            <button
+              onClick={() => setReviewMode(false)}
+              className="text-sm text-accent hover:underline"
+            >
+              Back to Results
+            </button>
+          </div>
+
+          <h3 className="text-base font-semibold mt-4">{reviewQuestion.prompt}</h3>
+          <p className="mt-1 text-sm text-muted">
+            {reviewQuestion.subjectName} • {reviewQuestion.topicName}
           </p>
+
+          {questionTimings[reviewQuestion.id] && (
+            <p className="mt-2 text-xs text-muted">Time spent: {questionTimings[reviewQuestion.id]}s</p>
+          )}
+
+          {Boolean(reviewQuestion.imageUrls?.length) && (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {reviewQuestion.imageUrls?.map((imageUrl) => (
+                <img key={imageUrl} src={imageUrl} alt="Question" className="h-40 w-full rounded-xl object-cover" />
+              ))}
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-2">
+            {(['A', 'B', 'C', 'D'] as const).map((key) => {
+              const feedback = feedbackMap[reviewQuestion.id];
+              const selectedOption = selectedOptionMap[reviewQuestion.id];
+              const isCorrect = feedback?.correctOption === key;
+              const isUserAnswer = selectedOption === key;
+
+              let optionClassName =
+                'rounded-xl border px-3 py-2 text-left transition';
+
+              if (isCorrect) {
+                optionClassName += ' border-green-500 bg-green-50/30 dark:bg-green-900/20 dark:border-green-600';
+              } else if (isUserAnswer && !isCorrect) {
+                optionClassName += ' border-red-500 bg-red-50/30 dark:bg-red-900/20 dark:border-red-600';
+              } else {
+                optionClassName += ' border-slate-300 dark:border-slate-700';
+              }
+
+              return (
+                <div key={key} className={optionClassName}>
+                  <span className="font-medium">{key}.</span> {reviewQuestion.options[key]}
+                  {isCorrect && <span className="ml-2 text-green-600 dark:text-green-400">✓</span>}
+                  {isUserAnswer && !isCorrect && <span className="ml-2 text-red-600 dark:text-red-400">✗</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          {feedbackMap[reviewQuestion.id] && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
+              <p className="text-sm font-medium text-muted">Explanation</p>
+              <p className="mt-2 text-sm">{feedbackMap[reviewQuestion.id].explanation}</p>
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => setReviewIndex(Math.max(0, reviewIndex - 1))}
+              disabled={reviewIndex === 0}
+              className="ui-btn-secondary disabled:opacity-60"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setReviewIndex(Math.min(incorrectQuestions.length - 1, reviewIndex + 1))}
+              disabled={reviewIndex >= incorrectQuestions.length - 1}
+              className="ui-btn-secondary disabled:opacity-60"
+            >
+              Next
+            </button>
+            <button
+              onClick={() => setReviewMode(false)}
+              className="ui-btn-primary ml-auto"
+            >
+              Done Reviewing
+            </button>
+          </div>
         </section>
       )}
     </div>

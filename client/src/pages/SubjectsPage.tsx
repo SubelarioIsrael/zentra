@@ -27,7 +27,9 @@ export function SubjectsPage() {
   const [topicName, setTopicName] = useState('');
   const [questionPrompt, setQuestionPrompt] = useState('');
   const [explanation, setExplanation] = useState('');
-  const [questionImages, setQuestionImages] = useState<string[]>([]);
+  const [hint, setHint] = useState('');
+  const [questionImages, setQuestionImages] = useState<{ url: string; fileName: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [options, setOptions] = useState({ A: '', B: '', C: '', D: '' });
   const [correctOption, setCorrectOption] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [error, setError] = useState('');
@@ -95,15 +97,59 @@ export function SubjectsPage() {
       options,
       correctOption,
       explanation,
-      questionImages: questionImages.map((image) => image.trim()).filter(Boolean).slice(0, 2),
+      hint,
+      questionImages: questionImages.map((img) => img.url).slice(0, 2),
     });
 
     setQuestionPrompt('');
     setExplanation('');
+    setHint('');
     setQuestionImages([]);
     setOptions({ A: '', B: '', C: '', D: '' });
     setCorrectOption('A');
     await selectTopic(topicId);
+  }
+
+  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be smaller than 5MB.');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = (e.target?.result as string)?.split(',')[1];
+        if (!base64) return;
+
+        const data = await apiRequest<{ imageUrl: string }>('/upload/question-image', 'POST', {
+          fileData: base64,
+          fileName: file.name,
+          fileType: file.type,
+        });
+
+        if (questionImages.length < 2) {
+          setQuestionImages((prev) => [...prev, { url: data.imageUrl, fileName: file.name }]);
+        } else {
+          setError('Maximum 2 images allowed.');
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function renameSubject(id: number, currentName: string) {
@@ -172,7 +218,7 @@ export function SubjectsPage() {
 
       {error && <p className="text-red-600">{error}</p>}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         <section className="ui-card">
           <h2 className="mb-3 font-semibold">Subjects</h2>
           <form onSubmit={createSubject} className="mb-3 flex gap-2">
@@ -232,100 +278,106 @@ export function SubjectsPage() {
             ))}
           </ul>
         </section>
-
-        <section className="ui-card">
-          <h2 className="mb-3 font-semibold">Questions</h2>
-          <form onSubmit={createQuestion} className="grid gap-2">
-            <textarea
-              value={questionPrompt}
-              onChange={(e) => setQuestionPrompt(e.target.value)}
-              placeholder="Question prompt"
-              className="ui-input min-h-20"
-            />
-            {(['A', 'B', 'C', 'D'] as const).map((key) => (
-              <input
-                key={key}
-                value={options[key]}
-                onChange={(e) => setOptions((prev) => ({ ...prev, [key]: e.target.value }))}
-                placeholder={`Option ${key}`}
-                className="ui-input"
-              />
-            ))}
-            <select
-              value={correctOption}
-              onChange={(e) => setCorrectOption(e.target.value as 'A' | 'B' | 'C' | 'D')}
-              className="ui-input"
-            >
-              <option value="A">Correct: A</option>
-              <option value="B">Correct: B</option>
-              <option value="C">Correct: C</option>
-              <option value="D">Correct: D</option>
-            </select>
-
-            <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-              <p className="text-sm font-medium">Optional images (max 2)</p>
-              <p className="ui-subtitle mt-1">Useful for diagrams, screenshots, and visual questions.</p>
-              <div className="mt-2 grid gap-2">
-                {questionImages.map((image, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      value={image}
-                      onChange={(e) =>
-                        setQuestionImages((prev) => prev.map((entry, entryIndex) => (entryIndex === index ? e.target.value : entry)))
-                      }
-                      placeholder={`Image URL ${index + 1}`}
-                      className="ui-input"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setQuestionImages((prev) => prev.filter((_, entryIndex) => entryIndex !== index))}
-                      className="ui-btn-secondary"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                {questionImages.length < 2 && (
-                  <button
-                    type="button"
-                    onClick={() => setQuestionImages((prev) => [...prev, ''])}
-                    className="ui-btn-secondary"
-                  >
-                    Add image field
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <textarea
-              value={explanation}
-              onChange={(e) => setExplanation(e.target.value)}
-              placeholder="Explanation"
-              className="ui-input min-h-16"
-            />
-            <button className="ui-btn-primary">Add Question</button>
-          </form>
-
-          <ul className="mt-3 space-y-2 text-sm">
-            {questions.map((question) => (
-              <li key={question.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
-                <p>{question.prompt}</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {[question.image_url_1, question.image_url_2]
-                    .filter((url): url is string => Boolean(url))
-                    .map((imageUrl) => (
-                      <img key={imageUrl} src={imageUrl} alt="Question" className="h-28 w-full rounded-lg object-cover" />
-                    ))}
-                </div>
-                <div className="mt-1 flex gap-2 text-xs">
-                  <button onClick={() => renameQuestion(question)} className="text-accent hover:underline">Edit</button>
-                  <button onClick={() => removeQuestion(question.id)} className="text-red-500">Delete</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
       </div>
+
+      <section className="ui-card">
+        <h2 className="mb-3 font-semibold">Questions ({questions.length})</h2>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div>
+            <form onSubmit={createQuestion} className="grid gap-2">
+              <textarea
+                value={questionPrompt}
+                onChange={(e) => setQuestionPrompt(e.target.value)}
+                placeholder="Question prompt"
+                className="ui-input min-h-20"
+              />
+              {(['A', 'B', 'C', 'D'] as const).map((key) => (
+                <input
+                  key={key}
+                  value={options[key]}
+                  onChange={(e) => setOptions((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={`Option ${key}`}
+                  className="ui-input"
+                />
+              ))}
+              <select
+                value={correctOption}
+                onChange={(e) => setCorrectOption(e.target.value as 'A' | 'B' | 'C' | 'D')}
+                className="ui-input"
+              >
+                <option value="A">Correct: A</option>
+                <option value="B">Correct: B</option>
+                <option value="C">Correct: C</option>
+                <option value="D">Correct: D</option>
+              </select>
+
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                <p className="text-sm font-medium">Optional images (max 2)</p>
+                <p className="ui-subtitle mt-1">Useful for diagrams, screenshots, and visual questions.</p>
+                <div className="mt-2 grid gap-2">
+                  {questionImages.map((image, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <div className="flex-1 text-sm text-muted truncate">{image.fileName}</div>
+                      <button
+                        type="button"
+                        onClick={() => setQuestionImages((prev) => prev.filter((_, entryIndex) => entryIndex !== index))}
+                        className="ui-btn-secondary"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  {questionImages.length < 2 && (
+                    <label className="ui-btn-secondary block text-center cursor-pointer">
+                      {uploading ? 'Uploading...' : 'Choose image'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              <textarea
+                value={explanation}
+                onChange={(e) => setExplanation(e.target.value)}
+                placeholder="Explanation"
+                className="ui-input min-h-16"
+              />
+              <textarea
+                value={hint}
+                onChange={(e) => setHint(e.target.value)}
+                placeholder="Hint (optional, shown during quiz on demand)"
+                className="ui-input min-h-12"
+              />
+              <button className="ui-btn-primary">Add Question</button>
+            </form>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium mb-2">Question List ({questions.length})</p>
+            <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
+              {questions.length === 0 ? (
+                <p className="text-sm text-muted">No questions yet</p>
+              ) : (
+                questions.map((question) => (
+                  <div key={question.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 flex-shrink-0">
+                    <p className="text-sm font-medium line-clamp-2">{question.prompt}</p>
+                    <div className="mt-1 flex gap-2 text-xs">
+                      <button onClick={() => renameQuestion(question)} className="text-accent hover:underline">Edit</button>
+                      <button onClick={() => removeQuestion(question.id)} className="text-red-500">Delete</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

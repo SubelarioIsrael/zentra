@@ -16,7 +16,7 @@ async function getQuestionMaps(questionIds) {
 
   const questionsResult = await supabase
     .from('questions')
-    .select('id, topic_id, prompt, option_a, option_b, option_c, option_d, correct_option, image_url_1, image_url_2, explanation')
+    .select('id, topic_id, prompt, option_a, option_b, option_c, option_d, correct_option, image_url_1, image_url_2, explanation, hint')
     .in('id', questionIds);
   const questions = requireData(questionsResult, 'Failed to fetch questions');
 
@@ -93,6 +93,7 @@ export async function getQuestionsForAttempt(attemptId) {
         image_url_1: question.image_url_1,
         image_url_2: question.image_url_2,
         explanation: question.explanation,
+        hint: question.hint,
         topic_name: topic?.name || 'Unknown',
         subject_name: subject?.name || 'Unknown',
       };
