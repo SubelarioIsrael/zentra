@@ -104,7 +104,15 @@ export async function uploadQuestionImageHandler(req, res) {
       });
 
     if (error) {
-      return res.status(400).json({ message: `Upload failed: ${error.message}` });
+      console.error('Supabase storage error:', error);
+      return res.status(400).json({ 
+        message: `Upload failed: ${error.message}. Make sure the 'zen-questions' bucket exists in Supabase Storage.` 
+      });
+    }
+
+    if (!data) {
+      console.error('No data returned from upload');
+      return res.status(400).json({ message: 'Upload succeeded but no data returned' });
     }
 
     // Get public URL
@@ -112,9 +120,13 @@ export async function uploadQuestionImageHandler(req, res) {
       .from('zen-questions')
       .getPublicUrl(storagePath);
 
+    if (!publicUrlData?.publicUrl) {
+      return res.status(400).json({ message: 'Could not generate public URL' });
+    }
+
     return res.status(201).json({ imageUrl: publicUrlData.publicUrl });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: 'File upload error' });
+    console.error('Image upload error:', err);
+    return res.status(500).json({ message: `File upload error: ${err.message}` });
   }
 }

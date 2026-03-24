@@ -15,6 +15,7 @@ type QuestionRecord = {
   image_url_1?: string | null;
   image_url_2?: string | null;
   explanation: string;
+  hint?: string | null;
 };
 
 export function SubjectsPage() {
@@ -33,6 +34,9 @@ export function SubjectsPage() {
   const [options, setOptions] = useState({ A: '', B: '', C: '', D: '' });
   const [correctOption, setCorrectOption] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [error, setError] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState<QuestionRecord | null>(null);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadSubjects().catch((err) => setError(err.message));
@@ -110,10 +114,7 @@ export function SubjectsPage() {
     await selectTopic(topicId);
   }
 
-  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  async function processImageFile(file: File) {
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file.');
       return;
@@ -124,32 +125,101 @@ export function SubjectsPage() {
       return;
     }
 
+    if (questionImages.length >= 2) {
+      setError('Maximum 2 images allowed.');
+      return;
+    }
+
     setUploading(true);
     setError('');
+    
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const base64 = (e.target?.result as string)?.split(',')[1];
-        if (!base64) return;
+        try {
+          const base64 = (e.target?.result as string)?.split(',')[1];
+          if (!base64) {
+            setError('Failed to read image file.');
+            setUploading(false);
+            return;
+          }
 
-        const data = await apiRequest<{ imageUrl: string }>('/upload/question-image', 'POST', {
-          fileData: base64,
-          fileName: file.name,
-          fileType: file.type,
-        });
+          const data = await apiRequest<{ imageUrl: string }>('/upload/question-image', 'POST', {
+            fileData: base64,
+            fileName: file.name,
+            fileType: file.type,
+          });
 
-        if (questionImages.length < 2) {
           setQuestionImages((prev) => [...prev, { url: data.imageUrl, fileName: file.name }]);
-        } else {
-          setError('Maximum 2 images allowed.');
+          setUploading(false);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Image upload failed');
+          setUploading(false);
         }
       };
+
+      reader.onerror = () => {
+        setError('Failed to read file.');
+        setUploading(false);
+      };
+
       reader.readAsDataURL(file);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
-    } finally {
       setUploading(false);
     }
+  }
+
+  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await processImageFile(file);
+  }
+
+  function handlePaste(event: React.ClipboardEvent<HTMLDivElement>) {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+        event.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          processImageFile(file);
+        }
+        return;
+      }
+    }
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragActive(true);
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragActive(false);
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    setDragActive(false);
+
+    const files = event.dataTransfer?.files;
+    if (!files) return;
+
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].type.startsWith('image/')) {
+        processImageFile(files[i]);
+        return;
+      }
+    }
+
+    setError('Please drop image files only.');
   }
 
   async function renameSubject(id: number, currentName: string) {
@@ -328,16 +398,33 @@ export function SubjectsPage() {
                     </div>
                   ))}
                   {questionImages.length < 2 && (
-                    <label className="ui-btn-secondary block text-center cursor-pointer">
-                      {uploading ? 'Uploading...' : 'Choose image'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        disabled={uploading}
-                        className="hidden"
-                      />
-                    </label>
+                    <div className="space-y-2">
+                      <div
+                        onPaste={handlePaste}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        tabIndex={0}
+                        className={`rounded-xl border-2 border-dashed p-4 text-center transition-colors cursor-pointer ${
+                          dragActive
+                            ? 'border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-900/20'
+                            : 'border-slate-300 dark:border-slate-600'
+                        }`}
+                      >
+                        <p className="text-sm font-medium">Drag & drop image here</p>
+                        <p className="text-xs text-muted mt-1">or paste with Ctrl+V</p>
+                      </div>
+                      <label className="ui-btn-secondary block text-center cursor-pointer">
+                        {uploading ? 'Uploading...' : 'Choose image file'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={uploading}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   )}
                 </div>
               </div>
@@ -365,9 +452,14 @@ export function SubjectsPage() {
                 <p className="text-sm text-muted">No questions yet</p>
               ) : (
                 questions.map((question) => (
-                  <div key={question.id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 flex-shrink-0">
-                    <p className="text-sm font-medium line-clamp-2">{question.prompt}</p>
-                    <div className="mt-1 flex gap-2 text-xs">
+                  <div
+                    key={question.id}
+                    onClick={() => setSelectedQuestion(question)}
+                    className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 flex-shrink-0 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group"
+                  >
+                    <p className="text-sm font-medium line-clamp-2 group-hover:text-accent transition-colors">{question.prompt}</p>
+                    <p className="text-xs text-muted mt-1">Click to view details</p>
+                    <div className="mt-2 flex gap-2 text-xs" onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => renameQuestion(question)} className="text-accent hover:underline">Edit</button>
                       <button onClick={() => removeQuestion(question.id)} className="text-red-500">Delete</button>
                     </div>
@@ -378,6 +470,104 @@ export function SubjectsPage() {
           </div>
         </div>
       </section>
+
+      {selectedQuestion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedQuestion(null)}>
+          <div
+            className="rounded-2xl bg-white dark:bg-slate-900 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 flex items-center justify-between bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 p-4">
+              <h2 className="text-lg font-semibold">Question Details</h2>
+              <button
+                onClick={() => setSelectedQuestion(null)}
+                className="text-2xl hover:opacity-60 transition-opacity"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <p className="text-sm text-muted mb-2">Prompt</p>
+                <p className="text-base font-medium">{selectedQuestion.prompt}</p>
+              </div>
+
+              {(selectedQuestion.image_url_1 || selectedQuestion.image_url_2) && (
+                <div>
+                  <p className="text-sm text-muted mb-2">Images</p>
+                  <div className="grid gap-3 grid-cols-2">
+                    {[selectedQuestion.image_url_1, selectedQuestion.image_url_2]
+                      .filter((url): url is string => Boolean(url))
+                      .map((imageUrl) => (
+                        <img
+                          key={imageUrl}
+                          src={imageUrl}
+                          alt="Question"
+                          onClick={() => setExpandedImage(imageUrl)}
+                          className="h-32 w-full rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                        />
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                  <p className="text-xs text-muted mb-1">Option A</p>
+                  <p className="text-sm font-medium">{selectedQuestion.option_a}</p>
+                  {selectedQuestion.correct_option === 'A' && <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Correct</p>}
+                </div>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                  <p className="text-xs text-muted mb-1">Option B</p>
+                  <p className="text-sm font-medium">{selectedQuestion.option_b}</p>
+                  {selectedQuestion.correct_option === 'B' && <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Correct</p>}
+                </div>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                  <p className="text-xs text-muted mb-1">Option C</p>
+                  <p className="text-sm font-medium">{selectedQuestion.option_c}</p>
+                  {selectedQuestion.correct_option === 'C' && <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Correct</p>}
+                </div>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                  <p className="text-xs text-muted mb-1">Option D</p>
+                  <p className="text-sm font-medium">{selectedQuestion.option_d}</p>
+                  {selectedQuestion.correct_option === 'D' && <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Correct</p>}
+                </div>
+              </div>
+
+              {selectedQuestion.hint && (
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3">
+                  <p className="text-xs text-amber-900 dark:text-amber-200 font-medium mb-1">Hint</p>
+                  <p className="text-sm text-amber-800 dark:text-amber-100">{selectedQuestion.hint}</p>
+                </div>
+              )}
+
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3">
+                <p className="text-xs text-muted font-medium mb-1">Explanation</p>
+                <p className="text-sm">{selectedQuestion.explanation}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {expandedImage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" onClick={() => setExpandedImage(null)}>
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={expandedImage}
+              alt="Expanded"
+              className="max-w-4xl max-h-[90vh] rounded-lg object-contain"
+            />
+            <button
+              onClick={() => setExpandedImage(null)}
+              className="absolute top-4 right-4 bg-white dark:bg-slate-900 rounded-full w-10 h-10 flex items-center justify-center hover:opacity-60 transition-opacity text-2xl"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

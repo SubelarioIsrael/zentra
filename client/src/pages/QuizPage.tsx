@@ -37,6 +37,7 @@ export function QuizPage() {
   const [reviewIndex, setReviewIndex] = useState(0);
   const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
   const [remaining, setRemaining] = useState<number | null>(null);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [error, setError] = useState('');
   const questionStartTime = useRef<number>(0);
 
@@ -333,7 +334,13 @@ export function QuizPage() {
           {Boolean(currentQuestion.imageUrls?.length) && (
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {currentQuestion.imageUrls?.map((imageUrl) => (
-                <img key={imageUrl} src={imageUrl} alt="Question" className="h-40 w-full rounded-xl object-cover" />
+                <img
+                  key={imageUrl}
+                  src={imageUrl}
+                  alt="Question"
+                  onClick={() => setExpandedImage(imageUrl)}
+                  className="h-40 w-full rounded-xl object-cover cursor-pointer hover:opacity-90 transition"
+                />
               ))}
             </div>
           )}
@@ -518,7 +525,13 @@ export function QuizPage() {
           {Boolean(reviewQuestion.imageUrls?.length) && (
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {reviewQuestion.imageUrls?.map((imageUrl) => (
-                <img key={imageUrl} src={imageUrl} alt="Question" className="h-40 w-full rounded-xl object-cover" />
+                <img
+                  key={imageUrl}
+                  src={imageUrl}
+                  alt="Question"
+                  onClick={() => setExpandedImage(imageUrl)}
+                  className="h-40 w-full rounded-xl object-cover cursor-pointer hover:opacity-90 transition"
+                />
               ))}
             </div>
           )}
@@ -581,6 +594,23 @@ export function QuizPage() {
             </button>
           </div>
         </section>
+      )}
+
+      {expandedImage && (
+        <div
+          onClick={() => setExpandedImage(null)}
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+        >
+          <div className="relative max-w-2xl max-h-[90vh]">
+            <img src={expandedImage} alt="Zoomed" className="w-full h-full object-contain rounded-xl" />
+            <button
+              onClick={() => setExpandedImage(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full flex items-center justify-center hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
