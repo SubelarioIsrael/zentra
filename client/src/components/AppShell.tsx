@@ -21,11 +21,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [darkMode]);
 
   return (
-    <div className="min-h-screen bg-shell text-text transition-colors dark:bg-darkBg dark:text-slate-100">
-      <header className="border-b border-slate-200 bg-panel/90 backdrop-blur dark:border-slate-700 dark:bg-darkPanel/80">
+    <div className="min-h-screen bg-gradient-to-b from-shell to-indigo-50/50 text-text transition-colors dark:from-darkBg dark:to-slate-950 dark:text-slate-100">
+      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-panel/85 backdrop-blur-xl dark:border-slate-700/70 dark:bg-darkPanel/85">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
-          <Link to="/dashboard" className="text-xl font-semibold text-accent">
-            Zentra
+          <Link to="/dashboard" className="rounded-xl bg-accentSoft px-3 py-2 text-xl font-semibold text-accent dark:bg-indigo-950/60 dark:text-indigo-300">
+            Zentra ✨
           </Link>
 
           <nav className="flex flex-wrap items-center gap-2 text-sm">
@@ -34,7 +34,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 ${isActive ? 'bg-accent text-white' : 'text-muted hover:bg-slate-100 dark:hover:bg-slate-800'}`
+                  `rounded-xl px-3 py-2 font-medium transition-colors ${
+                    isActive
+                      ? 'bg-accent text-white shadow-soft dark:shadow-none'
+                      : 'text-muted hover:bg-slate-100 hover:text-text dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                  }`
                 }
               >
                 {item.label}
@@ -45,9 +49,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setDarkMode((value) => !value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-muted hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+              className="ui-btn-secondary"
             >
-              {darkMode ? 'Light' : 'Dark'}
+              {darkMode ? 'Light' : 'Dark'} mode
             </button>
             <span className="hidden text-sm text-muted sm:block">{user?.name}</span>
             <button
@@ -55,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 logout();
                 navigate('/');
               }}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900"
+              className="ui-btn-primary"
             >
               Logout
             </button>
@@ -63,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
+      <main className="mx-auto w-full max-w-6xl px-4 py-8">{children}</main>
     </div>
   );
 }

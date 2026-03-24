@@ -96,7 +96,11 @@ export async function deleteTopic(id) {
   requireData(result, 'Failed to delete topic');
 }
 
-export async function createQuestion({ topicId, prompt, options, correctOption, explanation }) {
+export async function createQuestion({ topicId, prompt, options, correctOption, explanation, questionImages = [] }) {
+  const images = Array.isArray(questionImages)
+    ? questionImages.map((image) => String(image || '').trim()).filter(Boolean).slice(0, 2)
+    : [];
+
   const result = await supabase
     .from('questions')
     .insert({
@@ -107,6 +111,8 @@ export async function createQuestion({ topicId, prompt, options, correctOption, 
       option_c: options.C,
       option_d: options.D,
       correct_option: correctOption,
+      image_url_1: images[0] || null,
+      image_url_2: images[1] || null,
       explanation: explanation || null,
     })
     .select('*')
@@ -115,7 +121,11 @@ export async function createQuestion({ topicId, prompt, options, correctOption, 
   return requireData(result, 'Failed to create question');
 }
 
-export async function updateQuestion(id, { prompt, options, correctOption, explanation }) {
+export async function updateQuestion(id, { prompt, options, correctOption, explanation, questionImages = [] }) {
+  const images = Array.isArray(questionImages)
+    ? questionImages.map((image) => String(image || '').trim()).filter(Boolean).slice(0, 2)
+    : [];
+
   const result = await supabase
     .from('questions')
     .update({
@@ -125,6 +135,8 @@ export async function updateQuestion(id, { prompt, options, correctOption, expla
       option_c: options.C,
       option_d: options.D,
       correct_option: correctOption,
+      image_url_1: images[0] || null,
+      image_url_2: images[1] || null,
       explanation: explanation || null,
     })
     .eq('id', id)
@@ -142,7 +154,7 @@ export async function deleteQuestion(id) {
 export async function getQuestionsByTopic(topicId) {
   const result = await supabase
     .from('questions')
-    .select('id, topic_id, prompt, option_a, option_b, option_c, option_d, correct_option, explanation')
+    .select('id, topic_id, prompt, option_a, option_b, option_c, option_d, correct_option, image_url_1, image_url_2, explanation')
     .eq('topic_id', topicId)
     .order('id', { ascending: false });
 

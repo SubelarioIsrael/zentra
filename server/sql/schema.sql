@@ -34,9 +34,14 @@ CREATE TABLE IF NOT EXISTS questions (
   option_c TEXT NOT NULL,
   option_d TEXT NOT NULL,
   correct_option TEXT NOT NULL CHECK (correct_option IN ('A', 'B', 'C', 'D')),
+  image_url_1 TEXT,
+  image_url_2 TEXT,
   explanation TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS image_url_1 TEXT;
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS image_url_2 TEXT;
 
 CREATE TABLE IF NOT EXISTS quiz_attempts (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

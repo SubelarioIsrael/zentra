@@ -16,7 +16,7 @@ async function getQuestionMaps(questionIds) {
 
   const questionsResult = await supabase
     .from('questions')
-    .select('id, topic_id, prompt, option_a, option_b, option_c, option_d, correct_option, explanation')
+    .select('id, topic_id, prompt, option_a, option_b, option_c, option_d, correct_option, image_url_1, image_url_2, explanation')
     .in('id', questionIds);
   const questions = requireData(questionsResult, 'Failed to fetch questions');
 
@@ -90,6 +90,8 @@ export async function getQuestionsForAttempt(attemptId) {
         option_b: question.option_b,
         option_c: question.option_c,
         option_d: question.option_d,
+        image_url_1: question.image_url_1,
+        image_url_2: question.image_url_2,
         explanation: question.explanation,
         topic_name: topic?.name || 'Unknown',
         subject_name: subject?.name || 'Unknown',
@@ -326,6 +328,8 @@ export async function getReviewItems(userId, mode = 'incorrect') {
         option_b: question.option_b,
         option_c: question.option_c,
         option_d: question.option_d,
+        image_url_1: question.image_url_1,
+        image_url_2: question.image_url_2,
         correct_option: question.correct_option,
         explanation: question.explanation,
         topic_name: topic?.name || 'Unknown',

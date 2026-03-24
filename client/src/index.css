@@ -9,4 +9,48 @@
 body {
   margin: 0;
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #f3f6ff;
+  color: #0f172a;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@layer components {
+  .ui-card {
+    @apply rounded-2xl border border-slate-200/70 bg-panel p-5 shadow-panel transition-all dark:border-slate-700/70 dark:bg-darkPanel dark:shadow-none;
+  }
+
+  .ui-card-soft {
+    @apply rounded-2xl border border-indigo-100 bg-white/85 p-4 shadow-soft backdrop-blur dark:border-indigo-900/40 dark:bg-slate-900/70 dark:shadow-none;
+  }
+
+  .ui-btn {
+    @apply rounded-xl px-4 py-2 text-sm font-medium transition-colors;
+  }
+
+  .ui-btn-primary {
+    @apply ui-btn bg-accent text-white hover:bg-indigo-600;
+  }
+
+  .ui-btn-secondary {
+    @apply ui-btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+  }
+
+  .ui-input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-text outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-indigo-500 dark:focus:ring-indigo-900/50;
+  }
+
+  .ui-subtitle {
+    @apply text-sm text-muted;
+  }
+
+  .ui-helper {
+    @apply rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-900 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-200;
+  }
+
+  .ui-helper-warn {
+    @apply rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200;
+  }
 }

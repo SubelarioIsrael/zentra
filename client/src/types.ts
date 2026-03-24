@@ -27,5 +27,6 @@ export type Question = {
   prompt: string;
   topicName: string;
   subjectName: string;
+  imageUrls?: string[];
   options: Record<'A' | 'B' | 'C' | 'D', string>;
 };

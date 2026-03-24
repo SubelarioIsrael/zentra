@@ -5,16 +5,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        shell: '#f5f5f4',
+        shell: '#f3f6ff',
         panel: '#ffffff',
-        text: '#1f2937',
-        muted: '#6b7280',
-        accent: '#5b6cff',
-        darkBg: '#0f172a',
-        darkPanel: '#1e293b',
+        text: '#0f172a',
+        muted: '#64748b',
+        accent: '#4f46e5',
+        accentSoft: '#e0e7ff',
+        darkBg: '#0b1220',
+        darkPanel: '#121a2b',
       },
       boxShadow: {
-        panel: '0 8px 24px rgba(15, 23, 42, 0.08)',
+        panel: '0 8px 20px rgba(15, 23, 42, 0.06)',
+        soft: '0 4px 12px rgba(79, 70, 229, 0.12)',
       },
     },
   },

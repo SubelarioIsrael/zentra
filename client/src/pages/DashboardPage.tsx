@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '../api/client';
+import { HelperAlert } from '../components/HelperAlert';
 
 type Summary = {
   totalQuizzes: number;
@@ -35,25 +36,29 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="ui-subtitle mt-1">Track momentum, spot weak areas, and keep your streak active.</p>
+      </div>
+      <HelperAlert>Use Weak Topics first, then jump to Quiz for targeted practice rounds.</HelperAlert>
 
       <div className="grid gap-4 sm:grid-cols-3">
         {cards.map((card) => (
-          <div key={card.label} className="rounded-xl bg-panel p-4 shadow-panel dark:bg-darkPanel">
+          <div key={card.label} className="ui-card-soft">
             <p className="text-sm text-muted">{card.label}</p>
-            <p className="mt-2 text-2xl font-semibold">{card.value}</p>
+            <p className="mt-2 text-2xl font-semibold text-accent dark:text-indigo-300">{card.value}</p>
           </div>
         ))}
       </div>
 
-      <section className="rounded-xl bg-panel p-4 shadow-panel dark:bg-darkPanel">
+      <section className="ui-card">
         <h2 className="mb-3 text-lg font-semibold">Weak Topics</h2>
         {data.weakTopics.length === 0 ? (
           <p className="text-sm text-muted">No weak topics detected yet. Keep practicing.</p>
         ) : (
           <ul className="space-y-2">
             {data.weakTopics.map((topic) => (
-              <li key={topic.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800">
+              <li key={topic.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/70">
                 <span>{topic.name}</span>
                 <span className="text-sm text-red-500">{topic.accuracy}%</span>
               </li>
@@ -62,7 +67,7 @@ export function DashboardPage() {
         )}
       </section>
 
-      <section className="rounded-xl bg-panel p-4 shadow-panel dark:bg-darkPanel">
+      <section className="ui-card">
         <h2 className="mb-3 text-lg font-semibold">Topic Accuracy</h2>
         <div className="space-y-3">
           {data.topicAccuracy.map((topic) => (
@@ -71,9 +76,9 @@ export function DashboardPage() {
                 <span>{topic.name}</span>
                 <span>{topic.accuracy}%</span>
               </div>
-              <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700">
+              <div className="h-2.5 rounded-full bg-slate-200 dark:bg-slate-700">
                 <div
-                  className="h-full rounded-full bg-accent"
+                  className="h-full rounded-full bg-gradient-to-r from-accent to-indigo-400"
                   style={{ width: `${Math.max(0, Math.min(100, topic.accuracy))}%` }}
                 />
               </div>

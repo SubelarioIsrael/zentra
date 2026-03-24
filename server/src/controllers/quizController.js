@@ -38,6 +38,7 @@ export async function startQuiz(req, res) {
     prompt: q.prompt,
     topicName: q.topic_name,
     subjectName: q.subject_name,
+    imageUrls: [q.image_url_1, q.image_url_2].filter(Boolean),
     options: {
       A: q.option_a,
       B: q.option_b,

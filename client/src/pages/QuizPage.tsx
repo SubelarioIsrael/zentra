@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../api/client';
+import { HelperAlert } from '../components/HelperAlert';
 import type { Subject, Topic } from '../types';
 
 type QuizQuestion = {
@@ -7,6 +8,7 @@ type QuizQuestion = {
   prompt: string;
   topicName: string;
   subjectName: string;
+  imageUrls?: string[];
   options: Record<'A' | 'B' | 'C' | 'D', string>;
 };
 
@@ -26,6 +28,7 @@ export function QuizPage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, Feedback>>({});
+  const [selectedOptionMap, setSelectedOptionMap] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
   const [result, setResult] = useState<{ score: number; total: number; percent: number } | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [error, setError] = useState('');
@@ -77,6 +80,7 @@ export function QuizPage() {
     setQuestions(data.questions);
     setIndex(0);
     setFeedbackMap({});
+    setSelectedOptionMap({});
     setRemaining(mode === 'timed' ? durationSeconds : null);
   }
 
@@ -89,7 +93,19 @@ export function QuizPage() {
       timeSpentSeconds: 0,
     });
 
+    setSelectedOptionMap((prev) => ({ ...prev, [currentQuestion.id]: option }));
     setFeedbackMap((prev) => ({ ...prev, [currentQuestion.id]: data }));
+  }
+
+  async function confirmAnswer() {
+    if (!currentQuestion) return;
+    const selectedOption = selectedOptionMap[currentQuestion.id];
+    if (!selectedOption) {
+      setError('Pick an option first, then click Confirm answer.');
+      return;
+    }
+    setError('');
+    await answer(selectedOption);
   }
 
   async function finishQuiz() {
@@ -104,18 +120,22 @@ export function QuizPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold">Quiz</h1>
+      <div>
+        <h1 className="text-2xl font-semibold">Quiz</h1>
+        <p className="ui-subtitle mt-1">Short, focused rounds with instant feedback.</p>
+      </div>
+      <HelperAlert>During quiz: click an option to select it, then press Confirm answer.</HelperAlert>
       {error && <p className="text-red-600">{error}</p>}
 
       {!attemptId && (
-        <section className="rounded-xl bg-panel p-4 shadow-panel dark:bg-darkPanel">
+        <section className="ui-card">
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className="mb-1 block text-sm text-muted">Mode</label>
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as 'timed' | 'untimed')}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
+                className="ui-input"
               >
                 <option value="untimed">Untimed</option>
                 <option value="timed">Timed</option>
@@ -129,7 +149,7 @@ export function QuizPage() {
                 value={durationSeconds}
                 disabled={mode === 'untimed'}
                 onChange={(e) => setDurationSeconds(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
+                className="ui-input"
               />
             </div>
             <div>
@@ -140,7 +160,7 @@ export function QuizPage() {
                 max={25}
                 value={limit}
                 onChange={(e) => setLimit(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
+                className="ui-input"
               />
             </div>
           </div>
@@ -149,7 +169,7 @@ export function QuizPage() {
             <p className="mb-2 text-sm text-muted">Topics</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {topics.map((topic) => (
-                <label key={topic.id} className="flex items-center gap-2 rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700">
+                <label key={topic.id} className="flex items-center gap-2 rounded-xl border border-slate-200 p-2 text-sm dark:border-slate-700">
                   <input
                     type="checkbox"
                     checked={selectedTopicIds.includes(topic.id)}
@@ -165,23 +185,20 @@ export function QuizPage() {
             </div>
           </div>
 
-          <button
-            onClick={startQuiz}
-            className="mt-4 rounded-lg bg-accent px-4 py-2 font-medium text-white"
-          >
+          <button onClick={startQuiz} className="ui-btn-primary mt-4">
             Start Quiz
           </button>
         </section>
       )}
 
       {attemptId && currentQuestion && (
-        <section className="rounded-xl bg-panel p-4 shadow-panel dark:bg-darkPanel">
+        <section className="ui-card">
           <div className="mb-4 flex items-center justify-between text-sm text-muted">
             <p>
               Question {index + 1} / {questions.length}
             </p>
             {mode === 'timed' && (
-              <p>
+              <p className="rounded-full bg-accentSoft px-3 py-1 font-medium text-accent dark:bg-indigo-950/60 dark:text-indigo-300">
                 Time: {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
               </p>
             )}
@@ -192,21 +209,53 @@ export function QuizPage() {
             {currentQuestion.subjectName} • {currentQuestion.topicName}
           </p>
 
+          {Boolean(currentQuestion.imageUrls?.length) && (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {currentQuestion.imageUrls?.map((imageUrl) => (
+                <img key={imageUrl} src={imageUrl} alt="Question" className="h-40 w-full rounded-xl object-cover" />
+              ))}
+            </div>
+          )}
+
           <div className="mt-4 grid gap-2">
-            {(['A', 'B', 'C', 'D'] as const).map((key) => (
-              <button
-                key={key}
-                disabled={Boolean(feedbackMap[currentQuestion.id])}
-                onClick={() => answer(key)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-left hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
-              >
-                <span className="font-medium">{key}.</span> {currentQuestion.options[key]}
-              </button>
-            ))}
+            {(['A', 'B', 'C', 'D'] as const).map((key) => {
+              const questionFeedback = feedbackMap[currentQuestion.id];
+              const selectedOption = selectedOptionMap[currentQuestion.id];
+
+              let optionClassName =
+                'rounded-xl border border-slate-300 px-3 py-2 text-left transition dark:border-slate-700';
+
+              if (!questionFeedback && selectedOption === key) {
+                optionClassName += ' border-indigo-500 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-900/30';
+              } else if (!questionFeedback) {
+                optionClassName += ' hover:border-indigo-300 hover:bg-indigo-50/50 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/20';
+              } else if (questionFeedback.correctOption === key) {
+                optionClassName += ' border-green-500 bg-green-50 dark:bg-green-900/20';
+              } else if (selectedOption === key && !questionFeedback.correct) {
+                optionClassName += ' border-red-500 bg-red-50 dark:bg-red-900/20';
+              }
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={Boolean(questionFeedback)}
+                  onClick={() =>
+                    setSelectedOptionMap((prev) => ({
+                      ...prev,
+                      [currentQuestion.id]: key,
+                    }))
+                  }
+                  className={optionClassName}
+                >
+                  <span className="font-medium">{key}.</span> {currentQuestion.options[key]}
+                </button>
+              );
+            })}
           </div>
 
           {feedbackMap[currentQuestion.id] && (
-            <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800">
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800/70">
               <p className={feedbackMap[currentQuestion.id].correct ? 'text-green-600' : 'text-red-600'}>
                 {feedbackMap[currentQuestion.id].correct ? 'Correct' : 'Incorrect'}
               </p>
@@ -219,18 +268,25 @@ export function QuizPage() {
             <button
               onClick={() => setIndex((value) => Math.max(0, value - 1))}
               disabled={index === 0}
-              className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60 dark:border-slate-700"
+              className="ui-btn-secondary disabled:opacity-60"
             >
               Previous
             </button>
             <button
               onClick={() => setIndex((value) => Math.min(questions.length - 1, value + 1))}
               disabled={index >= questions.length - 1}
-              className="rounded-lg border border-slate-300 px-3 py-2 disabled:opacity-60 dark:border-slate-700"
+              className="ui-btn-secondary disabled:opacity-60"
             >
               Next
             </button>
-            <button onClick={finishQuiz} className="ml-auto rounded-lg bg-accent px-3 py-2 text-white">
+            <button
+              onClick={confirmAnswer}
+              disabled={Boolean(feedbackMap[currentQuestion.id])}
+              className="ui-btn-primary"
+            >
+              Confirm answer
+            </button>
+            <button onClick={finishQuiz} className="ui-btn-primary ml-auto">
               Finish
             </button>
           </div>
@@ -238,7 +294,7 @@ export function QuizPage() {
       )}
 
       {result && (
-        <section className="rounded-xl bg-panel p-4 shadow-panel dark:bg-darkPanel">
+        <section className="ui-card">
           <h2 className="text-lg font-semibold">Quiz Result</h2>
           <p className="mt-2 text-muted">
             Score: {result.score}/{result.total} ({result.percent}%)
