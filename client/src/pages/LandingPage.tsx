@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { HelperAlert } from '../components/HelperAlert';
@@ -12,6 +12,9 @@ export function LandingPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const nameId = useId();
+  const emailId = useId();
+  const passwordId = useId();
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -33,6 +36,15 @@ export function LandingPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function switchMode(nextMode: 'login' | 'register') {
+    if (submitting || mode === nextMode) {
+      return;
+    }
+
+    setMode(nextMode);
+    setError('');
   }
 
   return (
@@ -76,9 +88,14 @@ export function LandingPage() {
 
         <section className="ui-card flex h-full flex-col p-6 md:p-8">
           <div className="mb-5">
-            <p className="text-sm font-semibold text-text dark:text-slate-100">Welcome</p>
-            <p className="mt-1 text-sm text-muted">
-              {mode === 'login' ? 'Continue your progress and jump back in.' : 'Create your account to start learning with quizzes.'}
+            <p className="text-sm font-semibold text-text dark:text-slate-100">{mode === 'login' ? 'Welcome back' : 'Create your account'}</p>
+            <h2 className="mt-1 text-xl font-semibold text-text dark:text-slate-100">
+              {mode === 'login' ? 'Sign in to continue' : 'Start your quiz routine'}
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              {mode === 'login'
+                ? 'Pick up where you left off with your latest subjects and review streak.'
+                : 'Register in seconds, then add your first subject and begin focused quiz sessions.'}
             </p>
           </div>
 
@@ -87,13 +104,17 @@ export function LandingPage() {
           <div className="mb-5 mt-5 rounded-xl bg-slate-100 p-1 dark:bg-slate-900">
             <div className="grid grid-cols-2 gap-1">
               <button
-                onClick={() => setMode('login')}
+                type="button"
+                onClick={() => switchMode('login')}
+                disabled={submitting}
                 className={`ui-btn w-full ${mode === 'login' ? 'bg-accent text-white' : 'bg-transparent text-slate-700 dark:text-slate-200'}`}
               >
                 Login
               </button>
               <button
-                onClick={() => setMode('register')}
+                type="button"
+                onClick={() => switchMode('register')}
+                disabled={submitting}
                 className={`ui-btn w-full ${mode === 'register' ? 'bg-accent text-white' : 'bg-transparent text-slate-700 dark:text-slate-200'}`}
               >
                 Register
@@ -103,29 +124,55 @@ export function LandingPage() {
 
           <form onSubmit={handleSubmit} className="grid gap-3">
             {mode === 'register' && (
-              <input
-                className="ui-input"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Full name"
-              />
+              <label className="grid gap-1 text-sm text-text dark:text-slate-100" htmlFor={nameId}>
+                Full name
+                <input
+                  id={nameId}
+                  className="ui-input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Jane Doe"
+                  autoComplete="name"
+                  required
+                  disabled={submitting}
+                />
+              </label>
             )}
-            <input
-              type="email"
-              className="ui-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
-            />
-            <input
-              type="password"
-              className="ui-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-            />
+            <label className="grid gap-1 text-sm text-text dark:text-slate-100" htmlFor={emailId}>
+              Email
+              <input
+                id={emailId}
+                type="email"
+                className="ui-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                required
+                disabled={submitting}
+              />
+            </label>
+            <label className="grid gap-1 text-sm text-text dark:text-slate-100" htmlFor={passwordId}>
+              Password
+              <input
+                id={passwordId}
+                type="password"
+                className="ui-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={mode === 'login' ? 'Enter your password' : 'At least 6 characters'}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                minLength={mode === 'register' ? 6 : undefined}
+                required
+                disabled={submitting}
+              />
+            </label>
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && (
+              <p role="alert" aria-live="polite" className="text-sm text-red-600 dark:text-red-400">
+                {error}
+              </p>
+            )}
 
             <button
               disabled={submitting}
@@ -133,6 +180,12 @@ export function LandingPage() {
             >
               {submitting ? 'Please wait...' : mode === 'login' ? 'Login' : 'Create account'}
             </button>
+
+            <p className="text-xs text-muted">
+              {mode === 'login'
+                ? 'New to Zentra? Switch to Register to create an account.'
+                : 'By creating an account, you can track quiz performance and daily consistency.'}
+            </p>
           </form>
         </section>
       </div>

@@ -14,6 +14,7 @@ type QuizQuestion = {
 };
 
 type Feedback = {
+  attemptItemId: number;
   correct: boolean;
   correctOption: 'A' | 'B' | 'C' | 'D';
   explanation: string;
@@ -30,6 +31,7 @@ export function QuizPage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, Feedback>>({});
+  const [savedMistakeQuestionIds, setSavedMistakeQuestionIds] = useState<Set<number>>(new Set());
   const [selectedOptionMap, setSelectedOptionMap] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
   const [result, setResult] = useState<{ score: number; total: number; percent: number } | null>(null);
   const [questionTimings, setQuestionTimings] = useState<Record<number, number>>({});
@@ -190,8 +192,31 @@ export function QuizPage() {
     setQuestions(shuffleQuestions(data.questions));
     setIndex(0);
     setFeedbackMap({});
+    setSavedMistakeQuestionIds(new Set());
     setSelectedOptionMap({});
     setRemaining(mode === 'timed' ? durationSeconds : null);
+  }
+
+  async function saveCurrentToMistakeNotebook() {
+    if (!attemptId || !currentQuestion) return;
+
+    const feedback = feedbackMap[currentQuestion.id];
+    const selectedOption = selectedOptionMap[currentQuestion.id];
+    if (!feedback || feedback.correct || !selectedOption) {
+      return;
+    }
+
+    await apiRequest<{ mistakeId: number; status: 'open' | 'mastered' }>(
+      `/quiz/${attemptId}/mistakes`,
+      'POST',
+      {
+        questionId: currentQuestion.id,
+        attemptItemId: feedback.attemptItemId,
+        userAnswer: selectedOption,
+      },
+    );
+
+    setSavedMistakeQuestionIds((prev) => new Set(prev).add(currentQuestion.id));
   }
 
   async function answer(option: 'A' | 'B' | 'C' | 'D') {
@@ -407,6 +432,15 @@ export function QuizPage() {
               </p>
               <p className="mt-1 text-muted">Correct answer: {feedbackMap[currentQuestion.id].correctOption}</p>
               <p className="mt-1">{feedbackMap[currentQuestion.id].explanation}</p>
+              {!feedbackMap[currentQuestion.id].correct && (
+                <button
+                  onClick={saveCurrentToMistakeNotebook}
+                  disabled={savedMistakeQuestionIds.has(currentQuestion.id)}
+                  className="ui-btn-secondary mt-3 disabled:opacity-60"
+                >
+                  {savedMistakeQuestionIds.has(currentQuestion.id) ? 'Saved to Mistake Notebook' : 'Add to Mistake Notebook'}
+                </button>
+              )}
             </div>
           )}
 

@@ -3,10 +3,14 @@ import {
   completeAttempt,
   createAttempt,
   getDashboardSummary,
+  listMistakes,
   getQuestionsForAttempt,
   getRandomQuestions,
   getRecentAttempts,
   getReviewItems,
+  retryMistake,
+  updateMistakeStatus,
+  upsertMistakeFromAnswer,
 } from '../models/quizModel.js';
 import { findUserById, updateUserStreak } from '../models/userModel.js';
 
@@ -77,6 +81,32 @@ export async function submitAnswer(req, res) {
   return res.json(result);
 }
 
+export async function saveMistake(req, res) {
+  const attemptId = Number(req.params.attemptId);
+  const { questionId, attemptItemId, userAnswer } = req.body;
+
+  if (!attemptId || !Number(questionId)) {
+    return res.status(400).json({ message: 'Attempt and question are required.' });
+  }
+
+  if (!['A', 'B', 'C', 'D'].includes(userAnswer)) {
+    return res.status(400).json({ message: 'User answer must be one of A/B/C/D.' });
+  }
+
+  const record = await upsertMistakeFromAnswer({
+    userId: req.user.id,
+    questionId: Number(questionId),
+    attemptItemId: Number(attemptItemId) || null,
+    userAnswer,
+  });
+
+  if (!record) {
+    return res.status(404).json({ message: 'Question not found.' });
+  }
+
+  return res.status(201).json(record);
+}
+
 export async function finishQuiz(req, res) {
   const attemptId = Number(req.params.attemptId);
   const summary = await completeAttempt(attemptId);
@@ -103,6 +133,66 @@ export async function reviewItems(req, res) {
   const mode = req.query.mode === 'all' ? 'all' : 'incorrect';
   const items = await getReviewItems(req.user.id, mode);
   return res.json({ items });
+}
+
+export async function mistakeItems(req, res) {
+  const status = ['open', 'mastered', 'all'].includes(req.query.status)
+    ? req.query.status
+    : 'open';
+  const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
+  const topicId = req.query.topicId ? Number(req.query.topicId) : null;
+
+  const items = await listMistakes({
+    userId: req.user.id,
+    status,
+    limit,
+    topicId,
+  });
+
+  return res.json({ items });
+}
+
+export async function retryMistakeItem(req, res) {
+  const mistakeId = Number(req.params.id);
+  const { answer, timeSpentSeconds } = req.body;
+
+  if (!['A', 'B', 'C', 'D'].includes(answer)) {
+    return res.status(400).json({ message: 'Answer must be one of A/B/C/D.' });
+  }
+
+  const result = await retryMistake({
+    userId: req.user.id,
+    mistakeId,
+    answer,
+    timeSpentSeconds: Number(timeSpentSeconds) || null,
+  });
+
+  if (!result) {
+    return res.status(404).json({ message: 'Mistake item not found.' });
+  }
+
+  return res.json(result);
+}
+
+export async function patchMistakeStatus(req, res) {
+  const mistakeId = Number(req.params.id);
+  const { status } = req.body;
+
+  if (!['open', 'mastered'].includes(status)) {
+    return res.status(400).json({ message: 'Status must be open or mastered.' });
+  }
+
+  const result = await updateMistakeStatus({
+    userId: req.user.id,
+    mistakeId,
+    status,
+  });
+
+  if (!result) {
+    return res.status(404).json({ message: 'Mistake item not found.' });
+  }
+
+  return res.json(result);
 }
 
 export async function profileStats(req, res) {

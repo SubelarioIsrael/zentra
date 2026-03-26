@@ -65,3 +65,18 @@ CREATE TABLE IF NOT EXISTS quiz_attempt_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(attempt_id, question_id)
 );
+
+CREATE TABLE IF NOT EXISTS mistake_items (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+  last_attempt_item_id BIGINT REFERENCES quiz_attempt_items(id) ON DELETE SET NULL,
+  user_answer TEXT CHECK (user_answer IN ('A', 'B', 'C', 'D')),
+  correct_option TEXT NOT NULL CHECK (correct_option IN ('A', 'B', 'C', 'D')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'mastered')),
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  mastered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, question_id)
+);

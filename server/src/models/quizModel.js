@@ -152,6 +152,7 @@ export async function answerQuestion({ attemptId, questionId, answer, timeSpentS
   requireData(updateResult, 'Failed to save answer');
 
   return {
+    attemptItemId: item.id,
     correct: isCorrect,
     correctOption: item.correct_option,
     explanation: item.explanation,
@@ -210,12 +211,54 @@ export async function getDashboardSummary(userId) {
       )
     : 0;
 
+  const mistakesResult = await supabase
+    .from('mistake_items')
+    .select('id, question_id, status, mastered_at')
+    .eq('user_id', userId);
+  const mistakes = requireData(mistakesResult, 'Failed to fetch mistake summary');
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+
+  const openMistakes = mistakes.filter((mistake) => mistake.status === 'open').length;
+  const masteredThisWeek = mistakes.filter(
+    (mistake) =>
+      mistake.status === 'mastered' &&
+      mistake.mastered_at &&
+      new Date(mistake.mastered_at).getTime() >= weekAgo.getTime(),
+  ).length;
+
+  const openMistakeQuestionIds = [...new Set(mistakes.filter((mistake) => mistake.status === 'open').map((mistake) => mistake.question_id))];
+  const { questionMap: mistakeQuestionMap, topicMap: mistakeTopicMap } = await getQuestionMaps(openMistakeQuestionIds);
+
+  const openCountByTopic = {};
+  for (const questionId of openMistakeQuestionIds) {
+    const question = mistakeQuestionMap.get(questionId);
+    if (!question) {
+      continue;
+    }
+    const topicId = question.topic_id;
+    openCountByTopic[topicId] = (openCountByTopic[topicId] || 0) + 1;
+  }
+
+  const mistakeTopics = Object.entries(openCountByTopic)
+    .map(([topicId, openCount]) => ({
+      id: Number(topicId),
+      name: mistakeTopicMap.get(Number(topicId))?.name || 'Unknown',
+      openCount,
+    }))
+    .sort((first, second) => second.openCount - first.openCount)
+    .slice(0, 5);
+
   if (!attempts.length) {
     return {
       totalQuizzes,
       averageScore,
       weakTopics: [],
       topicAccuracy: [],
+      openMistakes,
+      masteredThisWeek,
+      mistakeTopics,
     };
   }
 
@@ -233,6 +276,9 @@ export async function getDashboardSummary(userId) {
       averageScore,
       weakTopics: [],
       topicAccuracy: [],
+      openMistakes,
+      masteredThisWeek,
+      mistakeTopics,
     };
   }
 
@@ -275,6 +321,184 @@ export async function getDashboardSummary(userId) {
     averageScore,
     weakTopics,
     topicAccuracy,
+    openMistakes,
+    masteredThisWeek,
+    mistakeTopics,
+  };
+}
+
+export async function upsertMistakeFromAnswer({ userId, questionId, attemptItemId, userAnswer }) {
+  const questionResult = await supabase
+    .from('questions')
+    .select('correct_option')
+    .eq('id', questionId)
+    .maybeSingle();
+  const question = requireData(questionResult, 'Failed to fetch question for mistake notebook');
+
+  if (!question) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const upsertResult = await supabase
+    .from('mistake_items')
+    .upsert(
+      {
+        user_id: userId,
+        question_id: questionId,
+        last_attempt_item_id: attemptItemId || null,
+        user_answer: userAnswer,
+        correct_option: question.correct_option,
+        status: 'open',
+        mastered_at: null,
+        updated_at: now,
+      },
+      { onConflict: 'user_id,question_id' },
+    )
+    .select('id, status')
+    .single();
+  const record = requireData(upsertResult, 'Failed to save mistake item');
+
+  return {
+    mistakeId: record.id,
+    status: record.status,
+  };
+}
+
+export async function listMistakes({ userId, status = 'open', limit = 20, topicId = null }) {
+  let query = supabase
+    .from('mistake_items')
+    .select('id, question_id, user_answer, correct_option, status, retry_count, updated_at')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+
+  if (status && status !== 'all') {
+    query = query.eq('status', status);
+  }
+
+  const rowsResult = await query;
+  const rows = requireData(rowsResult, 'Failed to fetch mistake notebook');
+
+  if (!rows.length) {
+    return [];
+  }
+
+  const questionIds = [...new Set(rows.map((row) => row.question_id))];
+  const { questionMap, topicMap, subjectMap } = await getQuestionMaps(questionIds);
+
+  return rows
+    .map((row) => {
+      const question = questionMap.get(row.question_id);
+      if (!question) {
+        return null;
+      }
+
+      const topic = topicMap.get(question.topic_id);
+      if (topicId && topic?.id !== topicId) {
+        return null;
+      }
+
+      const subject = topic ? subjectMap.get(topic.subject_id) : null;
+
+      return {
+        id: row.id,
+        questionId: question.id,
+        prompt: question.prompt,
+        topicName: topic?.name || 'Unknown',
+        subjectName: subject?.name || 'Unknown',
+        userAnswer: row.user_answer,
+        correctOption: row.correct_option,
+        explanation: question.explanation,
+        options: {
+          A: question.option_a,
+          B: question.option_b,
+          C: question.option_c,
+          D: question.option_d,
+        },
+        imageUrls: [question.image_url_1, question.image_url_2].filter(Boolean),
+        retryCount: row.retry_count,
+        status: row.status,
+        updatedAt: row.updated_at,
+      };
+    })
+    .filter(Boolean);
+}
+
+export async function retryMistake({ userId, mistakeId, answer, timeSpentSeconds }) {
+  const mistakeResult = await supabase
+    .from('mistake_items')
+    .select('id, question_id, retry_count, status')
+    .eq('id', mistakeId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  const mistake = requireData(mistakeResult, 'Failed to fetch mistake item');
+
+  if (!mistake) {
+    return null;
+  }
+
+  const questionResult = await supabase
+    .from('questions')
+    .select('correct_option, explanation')
+    .eq('id', mistake.question_id)
+    .maybeSingle();
+  const question = requireData(questionResult, 'Failed to fetch question for retry');
+
+  if (!question) {
+    return null;
+  }
+
+  const correct = question.correct_option === answer;
+  const retryCount = (mistake.retry_count || 0) + 1;
+  const now = new Date().toISOString();
+
+  const updateResult = await supabase
+    .from('mistake_items')
+    .update({
+      user_answer: answer,
+      status: correct ? 'mastered' : 'open',
+      retry_count: retryCount,
+      mastered_at: correct ? now : null,
+      updated_at: now,
+    })
+    .eq('id', mistakeId)
+    .eq('user_id', userId);
+  requireData(updateResult, 'Failed to update retry result');
+
+  return {
+    correct,
+    status: correct ? 'mastered' : 'open',
+    retryCount,
+    correctOption: question.correct_option,
+    explanation: question.explanation,
+    timeSpentSeconds: Number(timeSpentSeconds) || null,
+  };
+}
+
+export async function updateMistakeStatus({ userId, mistakeId, status }) {
+  const now = new Date().toISOString();
+  const updateResult = await supabase
+    .from('mistake_items')
+    .update({
+      status,
+      mastered_at: status === 'mastered' ? now : null,
+      updated_at: now,
+    })
+    .eq('id', mistakeId)
+    .eq('user_id', userId)
+    .select('id, status, mastered_at')
+    .maybeSingle();
+
+  const record = requireData(updateResult, 'Failed to update mistake status');
+  if (!record) {
+    return null;
+  }
+
+  return {
+    id: record.id,
+    status: record.status,
+    masteredAt: record.mastered_at,
   };
 }
 
