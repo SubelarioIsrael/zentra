@@ -3,6 +3,7 @@ import {
   completeAttempt,
   createAttempt,
   getDashboardSummary,
+  getSpacedReviewQueue,
   listMistakes,
   getQuestionsForAttempt,
   getRandomQuestions,
@@ -150,6 +151,11 @@ export async function mistakeItems(req, res) {
   });
 
   return res.json({ items });
+}
+
+export async function spacedReviewQueue(req, res) {
+  const queue = await getSpacedReviewQueue(req.user.id);
+  return res.json(queue);
 }
 
 export async function retryMistakeItem(req, res) {

@@ -350,6 +350,9 @@ export async function upsertMistakeFromAnswer({ userId, questionId, attemptItemI
         user_answer: userAnswer,
         correct_option: question.correct_option,
         status: 'open',
+        interval_days: 1,
+        next_review_at: now,
+        last_reviewed_at: now,
         mastered_at: null,
         updated_at: now,
       },
@@ -428,7 +431,7 @@ export async function listMistakes({ userId, status = 'open', limit = 20, topicI
 export async function retryMistake({ userId, mistakeId, answer, timeSpentSeconds }) {
   const mistakeResult = await supabase
     .from('mistake_items')
-    .select('id, question_id, retry_count, status')
+    .select('id, question_id, retry_count, interval_days, status')
     .eq('id', mistakeId)
     .eq('user_id', userId)
     .maybeSingle();
@@ -451,7 +454,11 @@ export async function retryMistake({ userId, mistakeId, answer, timeSpentSeconds
 
   const correct = question.correct_option === answer;
   const retryCount = (mistake.retry_count || 0) + 1;
+  const previousIntervalDays = Math.max(1, Number(mistake.interval_days) || 1);
+  const nextIntervalDays = correct ? Math.min(30, previousIntervalDays * 2) : 1;
   const now = new Date().toISOString();
+  const nextReviewDate = new Date();
+  nextReviewDate.setDate(nextReviewDate.getDate() + nextIntervalDays);
 
   const updateResult = await supabase
     .from('mistake_items')
@@ -459,6 +466,9 @@ export async function retryMistake({ userId, mistakeId, answer, timeSpentSeconds
       user_answer: answer,
       status: correct ? 'mastered' : 'open',
       retry_count: retryCount,
+      interval_days: nextIntervalDays,
+      next_review_at: nextReviewDate.toISOString(),
+      last_reviewed_at: now,
       mastered_at: correct ? now : null,
       updated_at: now,
     })
@@ -478,10 +488,29 @@ export async function retryMistake({ userId, mistakeId, answer, timeSpentSeconds
 
 export async function updateMistakeStatus({ userId, mistakeId, status }) {
   const now = new Date().toISOString();
+
+  const mistakeResult = await supabase
+    .from('mistake_items')
+    .select('interval_days')
+    .eq('id', mistakeId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  const mistake = requireData(mistakeResult, 'Failed to fetch mistake status context');
+
+  if (!mistake) {
+    return null;
+  }
+
+  const intervalDays = Math.max(1, Number(mistake.interval_days) || 1);
+  const nextReviewDate = new Date();
+  nextReviewDate.setDate(nextReviewDate.getDate() + intervalDays);
+
   const updateResult = await supabase
     .from('mistake_items')
     .update({
       status,
+      next_review_at: status === 'mastered' ? nextReviewDate.toISOString() : now,
+      last_reviewed_at: now,
       mastered_at: status === 'mastered' ? now : null,
       updated_at: now,
     })
@@ -499,6 +528,92 @@ export async function updateMistakeStatus({ userId, mistakeId, status }) {
     id: record.id,
     status: record.status,
     masteredAt: record.mastered_at,
+  };
+}
+
+export async function getSpacedReviewQueue(userId) {
+  const rowsResult = await supabase
+    .from('mistake_items')
+    .select('id, question_id, status, retry_count, interval_days, next_review_at, updated_at')
+    .eq('user_id', userId)
+    .order('next_review_at', { ascending: true });
+  const rows = requireData(rowsResult, 'Failed to fetch spaced review queue');
+
+  if (!rows.length) {
+    return {
+      overdue: [],
+      dueToday: [],
+      upcoming: [],
+      mastered: [],
+    };
+  }
+
+  const questionIds = [...new Set(rows.map((row) => row.question_id))];
+  const { questionMap, topicMap, subjectMap } = await getQuestionMaps(questionIds);
+
+  const now = new Date();
+  const startToday = new Date(now);
+  startToday.setHours(0, 0, 0, 0);
+  const endToday = new Date(now);
+  endToday.setHours(23, 59, 59, 999);
+
+  const mapEntry = (row) => {
+    const question = questionMap.get(row.question_id);
+    if (!question) {
+      return null;
+    }
+
+    const topic = topicMap.get(question.topic_id);
+    const subject = topic ? subjectMap.get(topic.subject_id) : null;
+
+    return {
+      id: row.id,
+      questionId: question.id,
+      prompt: question.prompt,
+      topicName: topic?.name || 'Unknown',
+      subjectName: subject?.name || 'Unknown',
+      nextReviewAt: row.next_review_at,
+      retryCount: row.retry_count,
+      intervalDays: row.interval_days,
+      status: row.status,
+    };
+  };
+
+  const overdue = [];
+  const dueToday = [];
+  const upcoming = [];
+  const mastered = [];
+
+  for (const row of rows) {
+    const entry = mapEntry(row);
+    if (!entry) {
+      continue;
+    }
+
+    const reviewDate = new Date(row.next_review_at);
+    if (row.status === 'mastered') {
+      mastered.push(entry);
+      continue;
+    }
+
+    if (reviewDate.getTime() < startToday.getTime()) {
+      overdue.push(entry);
+      continue;
+    }
+
+    if (reviewDate.getTime() <= endToday.getTime()) {
+      dueToday.push(entry);
+      continue;
+    }
+
+    upcoming.push(entry);
+  }
+
+  return {
+    overdue,
+    dueToday,
+    upcoming,
+    mastered: mastered.slice(0, 20),
   };
 }
 

@@ -187,3 +187,29 @@ export async function getQuestionsByTopic(topicId) {
 
   return requireData(result, 'Failed to fetch questions');
 }
+
+export async function createQuestionReport({ questionId, userId, reason, details }) {
+  const questionCheckResult = await supabase
+    .from('questions')
+    .select('id')
+    .eq('id', questionId)
+    .maybeSingle();
+  const question = requireData(questionCheckResult, 'Failed to validate question');
+
+  if (!question) {
+    return null;
+  }
+
+  const result = await supabase
+    .from('question_reports')
+    .insert({
+      question_id: questionId,
+      user_id: userId,
+      reason,
+      details: details || null,
+    })
+    .select('id, question_id, user_id, reason, details, created_at')
+    .single();
+
+  return requireData(result, 'Failed to submit question report');
+}

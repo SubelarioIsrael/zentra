@@ -18,11 +18,31 @@ type MistakeItem = {
   subjectName: string;
 };
 
+type QueueItem = {
+  id: number;
+  questionId: number;
+  prompt: string;
+  topicName: string;
+  subjectName: string;
+  nextReviewAt: string;
+  retryCount: number;
+  intervalDays: number;
+  status: 'open' | 'mastered';
+};
+
+type QueueData = {
+  overdue: QueueItem[];
+  dueToday: QueueItem[];
+  upcoming: QueueItem[];
+  mastered: QueueItem[];
+};
+
 export function ReviewPage() {
   const [mode, setMode] = useState<'open' | 'mastered' | 'all'>('open');
   const [items, setItems] = useState<MistakeItem[]>([]);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
+  const [queue, setQueue] = useState<QueueData>({ overdue: [], dueToday: [], upcoming: [], mastered: [] });
   const [error, setError] = useState('');
 
   async function loadItems(selectedMode: 'open' | 'mastered' | 'all') {
@@ -30,11 +50,20 @@ export function ReviewPage() {
     setItems(data.items);
   }
 
+  async function loadQueue() {
+    const data = await apiRequest<QueueData>('/mistakes/queue');
+    setQueue(data);
+  }
+
   useEffect(() => {
     setError('');
     loadItems(mode)
       .catch((err) => setError(err.message));
   }, [mode]);
+
+  useEffect(() => {
+    loadQueue().catch((err) => setError(err.message));
+  }, []);
 
   async function retryItem(item: MistakeItem) {
     const answer = selectedAnswers[item.id];
@@ -66,6 +95,7 @@ export function ReviewPage() {
             : entry,
         ),
       );
+      await loadQueue();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -89,6 +119,7 @@ export function ReviewPage() {
             : entry,
         ),
       );
+      await loadQueue();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -103,6 +134,85 @@ export function ReviewPage() {
         <p className="ui-subtitle mt-1">Retry weak questions, then mark them mastered when ready.</p>
       </div>
       <HelperAlert>Stay on Open to focus only on unresolved mistakes.</HelperAlert>
+
+      <section className="ui-card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Spaced Review Queue</h2>
+          <button onClick={() => loadQueue().catch((err) => setError(err.message))} className="ui-btn-secondary">
+            Refresh Queue
+          </button>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-900/10">
+            <p className="text-xs text-red-700 dark:text-red-300">Overdue</p>
+            <p className="text-2xl font-semibold text-red-700 dark:text-red-300">{queue.overdue.length}</p>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-900/10">
+            <p className="text-xs text-amber-700 dark:text-amber-300">Due Today</p>
+            <p className="text-2xl font-semibold text-amber-700 dark:text-amber-300">{queue.dueToday.length}</p>
+          </div>
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900/50 dark:bg-indigo-900/10">
+            <p className="text-xs text-indigo-700 dark:text-indigo-300">Upcoming</p>
+            <p className="text-2xl font-semibold text-indigo-700 dark:text-indigo-300">{queue.upcoming.length}</p>
+          </div>
+          <div className="rounded-xl border border-green-200 bg-green-50 p-3 dark:border-green-900/50 dark:bg-green-900/10">
+            <p className="text-xs text-green-700 dark:text-green-300">Mastered</p>
+            <p className="text-2xl font-semibold text-green-700 dark:text-green-300">{queue.mastered.length}</p>
+          </div>
+        </div>
+
+        <div className="grid gap-3 xl:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+            <p className="text-sm font-semibold">Overdue</p>
+            {queue.overdue.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">None</p>
+            ) : (
+              <ul className="mt-2 space-y-2 text-sm">
+                {queue.overdue.slice(0, 5).map((item) => (
+                  <li key={item.id} className="rounded-lg bg-slate-50 px-2 py-1 dark:bg-slate-800/70">
+                    <p className="font-medium">{item.prompt}</p>
+                    <p className="text-xs text-muted">{item.subjectName} • {item.topicName}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+            <p className="text-sm font-semibold">Due Today</p>
+            {queue.dueToday.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">None</p>
+            ) : (
+              <ul className="mt-2 space-y-2 text-sm">
+                {queue.dueToday.slice(0, 5).map((item) => (
+                  <li key={item.id} className="rounded-lg bg-slate-50 px-2 py-1 dark:bg-slate-800/70">
+                    <p className="font-medium">{item.prompt}</p>
+                    <p className="text-xs text-muted">{item.subjectName} • {item.topicName}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+            <p className="text-sm font-semibold">Upcoming</p>
+            {queue.upcoming.length === 0 ? (
+              <p className="mt-2 text-sm text-muted">None</p>
+            ) : (
+              <ul className="mt-2 space-y-2 text-sm">
+                {queue.upcoming.slice(0, 5).map((item) => (
+                  <li key={item.id} className="rounded-lg bg-slate-50 px-2 py-1 dark:bg-slate-800/70">
+                    <p className="font-medium">{item.prompt}</p>
+                    <p className="text-xs text-muted">In {item.intervalDays} day(s)</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
+
       <div className="flex gap-2">
         <button
           className={`ui-btn ${mode === 'open' ? 'bg-accent text-white' : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}`}

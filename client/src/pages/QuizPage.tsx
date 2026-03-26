@@ -20,10 +20,18 @@ type Feedback = {
   explanation: string;
 };
 
+type ExamAnalytics = {
+  answeredCount: number;
+  unansweredCount: number;
+  avgTimeSeconds: number;
+  topicBreakdown: { name: string; accuracy: number; correct: number; total: number }[];
+};
+
 export function QuizPage() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedTopicIds, setSelectedTopicIds] = useState<number[]>([]);
   const [mode, setMode] = useState<'timed' | 'untimed'>('untimed');
+  const [examMode, setExamMode] = useState(false);
   const [durationSeconds, setDurationSeconds] = useState(600);
   const [limit, setLimit] = useState(10);
   const [shuffle, setShuffle] = useState(false);
@@ -32,6 +40,7 @@ export function QuizPage() {
   const [index, setIndex] = useState(0);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, Feedback>>({});
   const [savedMistakeQuestionIds, setSavedMistakeQuestionIds] = useState<Set<number>>(new Set());
+  const [reportedQuestionIds, setReportedQuestionIds] = useState<Set<number>>(new Set());
   const [selectedOptionMap, setSelectedOptionMap] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
   const [result, setResult] = useState<{ score: number; total: number; percent: number } | null>(null);
   const [questionTimings, setQuestionTimings] = useState<Record<number, number>>({});
@@ -40,6 +49,7 @@ export function QuizPage() {
   const [revealedHints, setRevealedHints] = useState<Set<number>>(new Set());
   const [remaining, setRemaining] = useState<number | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
+  const [examAnalytics, setExamAnalytics] = useState<ExamAnalytics | null>(null);
   const [error, setError] = useState('');
   const questionStartTime = useRef<number>(0);
 
@@ -57,9 +67,10 @@ export function QuizPage() {
   }, []);
 
   const currentQuestion = useMemo(() => questions[index], [questions, index]);
+  const activeMode = examMode ? 'timed' : mode;
 
   useEffect(() => {
-    if (!attemptId || mode !== 'timed' || !remaining) return;
+    if (!attemptId || activeMode !== 'timed' || !remaining) return;
 
     const timer = window.setInterval(() => {
       setRemaining((value) => {
@@ -74,7 +85,7 @@ export function QuizPage() {
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [attemptId, mode, remaining]);
+  }, [attemptId, activeMode, remaining]);
 
   useEffect(() => {
     if (!attemptId || !currentQuestion) return;
@@ -125,14 +136,7 @@ export function QuizPage() {
 
   useEffect(() => {
     if (!attemptId || !currentQuestion) return;
-    
-    // Record time for previous question when moving to next one
-    if (questionStartTime.current > 0) {
-      const timeSpent = Math.round((Date.now() - questionStartTime.current) / 1000);
-      setQuestionTimings((prev) => ({ ...prev, [currentQuestion.id]: timeSpent }));
-    }
-    
-    // Start timing for new question
+
     questionStartTime.current = Date.now();
   }, [attemptId, currentQuestion?.id]);
 
@@ -178,11 +182,46 @@ export function QuizPage() {
     });
   }
 
+  function buildExamAnalytics(): ExamAnalytics {
+    const topicStats: Record<string, { name: string; correct: number; total: number }> = {};
+
+    for (const question of questions) {
+      const topicLabel = `${question.subjectName} • ${question.topicName}`;
+      if (!topicStats[topicLabel]) {
+        topicStats[topicLabel] = { name: topicLabel, correct: 0, total: 0 };
+      }
+
+      topicStats[topicLabel].total += 1;
+      if (feedbackMap[question.id]?.correct) {
+        topicStats[topicLabel].correct += 1;
+      }
+    }
+
+    const topicBreakdown = Object.values(topicStats)
+      .map((entry) => ({
+        ...entry,
+        accuracy: entry.total ? Number(((entry.correct / entry.total) * 100).toFixed(2)) : 0,
+      }))
+      .sort((first, second) => first.accuracy - second.accuracy);
+
+    const timings = Object.values(questionTimings);
+
+    return {
+      answeredCount: Object.keys(feedbackMap).length,
+      unansweredCount: Math.max(0, questions.length - Object.keys(feedbackMap).length),
+      avgTimeSeconds: timings.length
+        ? Math.round(timings.reduce((acc, value) => acc + value, 0) / timings.length)
+        : 0,
+      topicBreakdown,
+    };
+  }
+
   async function startQuiz() {
     setError('');
     setResult(null);
+    setExamAnalytics(null);
     const data = await apiRequest<{ attemptId: number; questions: QuizQuestion[] }>('/quiz/start', 'POST', {
-      mode,
+      mode: activeMode,
       durationSeconds,
       topicIds: selectedTopicIds,
       questionLimit: limit,
@@ -193,8 +232,12 @@ export function QuizPage() {
     setIndex(0);
     setFeedbackMap({});
     setSavedMistakeQuestionIds(new Set());
+    setReportedQuestionIds(new Set());
     setSelectedOptionMap({});
-    setRemaining(mode === 'timed' ? durationSeconds : null);
+    setQuestionTimings({});
+    setReviewMode(false);
+    setReviewIndex(0);
+    setRemaining(activeMode === 'timed' ? durationSeconds : null);
   }
 
   async function saveCurrentToMistakeNotebook() {
@@ -219,17 +262,38 @@ export function QuizPage() {
     setSavedMistakeQuestionIds((prev) => new Set(prev).add(currentQuestion.id));
   }
 
-  async function answer(option: 'A' | 'B' | 'C' | 'D') {
+  async function reportQuestion(questionId: number) {
+    if (reportedQuestionIds.has(questionId)) {
+      return;
+    }
+
+    const reason = window.prompt('Report reason (e.g. wrong answer key, unclear prompt, duplicate):', 'wrong answer key');
+    if (!reason || !reason.trim()) {
+      return;
+    }
+
+    await apiRequest(`/questions/${questionId}/report`, 'POST', {
+      reason: reason.trim(),
+      details: '',
+    });
+
+    setReportedQuestionIds((prev) => new Set(prev).add(questionId));
+  }
+
+  async function answer(option: 'A' | 'B' | 'C' | 'D', explicitTimeSpentSeconds?: number) {
     if (!attemptId || !currentQuestion || feedbackMap[currentQuestion.id]) return;
+
+    const timeSpentSeconds = explicitTimeSpentSeconds || Math.max(1, Math.round((Date.now() - questionStartTime.current) / 1000));
 
     const data = await apiRequest<Feedback>(`/quiz/${attemptId}/answer`, 'POST', {
       questionId: currentQuestion.id,
       answer: option,
-      timeSpentSeconds: 0,
+      timeSpentSeconds,
     });
 
     setSelectedOptionMap((prev) => ({ ...prev, [currentQuestion.id]: option }));
     setFeedbackMap((prev) => ({ ...prev, [currentQuestion.id]: data }));
+    setQuestionTimings((prev) => ({ ...prev, [currentQuestion.id]: timeSpentSeconds }));
   }
 
   async function confirmAnswer() {
@@ -246,6 +310,9 @@ export function QuizPage() {
   async function finishQuiz() {
     if (!attemptId) return;
     const data = await apiRequest<{ score: number; total: number; percent: number }>(`/quiz/${attemptId}/finish`, 'POST');
+    if (examMode) {
+      setExamAnalytics(buildExamAnalytics());
+    }
     setResult(data);
     setAttemptId(null);
   }
@@ -257,9 +324,14 @@ export function QuizPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Quiz</h1>
-        <p className="ui-subtitle mt-1">Short, focused rounds with instant feedback.</p>
+        <p className="ui-subtitle mt-1">Short, focused rounds with instant feedback or strict exam simulation.</p>
       </div>
-      <HelperAlert>During quiz: click an option to select it, then press Confirm answer. <span className="text-xs">Or use A/B/C/D keys + Enter, arrow keys to navigate.</span></HelperAlert>
+      <HelperAlert>
+        {examMode
+          ? 'Exam mode active: no hints and no correctness feedback until you finish.'
+          : 'During quiz: click an option to select it, then press Confirm answer.'}{' '}
+        <span className="text-xs">Or use A/B/C/D keys + Enter, arrow keys to navigate.</span>
+      </HelperAlert>
       {error && <p className="text-red-600">{error}</p>}
 
       {!attemptId && (
@@ -270,6 +342,7 @@ export function QuizPage() {
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as 'timed' | 'untimed')}
+                disabled={examMode}
                 className="ui-input"
               >
                 <option value="untimed">Untimed</option>
@@ -282,7 +355,7 @@ export function QuizPage() {
                 type="number"
                 min={60}
                 value={durationSeconds}
-                disabled={mode === 'untimed'}
+                disabled={activeMode === 'untimed'}
                 onChange={(e) => setDurationSeconds(Number(e.target.value))}
                 className="ui-input"
               />
@@ -324,6 +397,21 @@ export function QuizPage() {
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
+                checked={examMode}
+                onChange={(e) => {
+                  const enabled = e.target.checked;
+                  setExamMode(enabled);
+                  if (enabled) {
+                    setMode('timed');
+                  }
+                }}
+                className="w-4 h-4"
+              />
+              <span>Exam simulation (timed, no hints, no instant feedback)</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
                 checked={shuffle}
                 onChange={(e) => setShuffle(e.target.checked)}
                 className="w-4 h-4"
@@ -344,7 +432,7 @@ export function QuizPage() {
             <p>
               Question {index + 1} / {questions.length}
             </p>
-            {mode === 'timed' && (
+            {activeMode === 'timed' && (
               <p className="rounded-full bg-accentSoft px-3 py-1 font-medium text-accent dark:bg-indigo-950/60 dark:text-indigo-300">
                 Time: {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
               </p>
@@ -355,6 +443,13 @@ export function QuizPage() {
           <p className="mt-1 text-sm text-muted">
             {currentQuestion.subjectName} • {currentQuestion.topicName}
           </p>
+          <button
+            onClick={() => reportQuestion(currentQuestion.id).catch((err) => setError(err.message))}
+            disabled={reportedQuestionIds.has(currentQuestion.id)}
+            className="ui-btn-secondary mt-2 disabled:opacity-60"
+          >
+            {reportedQuestionIds.has(currentQuestion.id) ? 'Question Reported' : 'Report Question'}
+          </button>
 
           {Boolean(currentQuestion.imageUrls?.length) && (
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -370,7 +465,7 @@ export function QuizPage() {
             </div>
           )}
 
-          {currentQuestion.hint && (
+          {currentQuestion.hint && !examMode && (
             <div className="mt-3">
               {revealedHints.has(currentQuestion.id) ? (
                 <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
@@ -396,7 +491,11 @@ export function QuizPage() {
               let optionClassName =
                 'rounded-xl border border-slate-300 px-3 py-2 text-left transition dark:border-slate-700';
 
-              if (!questionFeedback && selectedOption === key) {
+              if (examMode && questionFeedback) {
+                if (selectedOption === key) {
+                  optionClassName += ' border-indigo-500 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-900/30';
+                }
+              } else if (!questionFeedback && selectedOption === key) {
                 optionClassName += ' border-indigo-500 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-900/30';
               } else if (!questionFeedback) {
                 optionClassName += ' hover:border-indigo-300 hover:bg-indigo-50/50 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/20';
@@ -425,7 +524,7 @@ export function QuizPage() {
             })}
           </div>
 
-          {feedbackMap[currentQuestion.id] && (
+          {feedbackMap[currentQuestion.id] && !examMode && (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-800/70">
               <p className={feedbackMap[currentQuestion.id].correct ? 'text-green-600' : 'text-red-600'}>
                 {feedbackMap[currentQuestion.id].correct ? 'Correct' : 'Incorrect'}
@@ -441,6 +540,12 @@ export function QuizPage() {
                   {savedMistakeQuestionIds.has(currentQuestion.id) ? 'Saved to Mistake Notebook' : 'Add to Mistake Notebook'}
                 </button>
               )}
+            </div>
+          )}
+
+          {feedbackMap[currentQuestion.id] && examMode && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-muted dark:border-slate-700 dark:bg-slate-800/70">
+              Answer submitted. Result will be shown after you finish the exam.
             </div>
           )}
 
@@ -464,7 +569,7 @@ export function QuizPage() {
               disabled={Boolean(feedbackMap[currentQuestion.id])}
               className="ui-btn-primary"
             >
-              Confirm answer
+              {examMode ? 'Submit answer' : 'Confirm answer'}
             </button>
             <button onClick={finishQuiz} className="ui-btn-primary ml-auto">
               Finish
@@ -475,7 +580,7 @@ export function QuizPage() {
 
       {result && !reviewMode && (
         <section className="ui-card">
-          <h2 className="text-lg font-semibold">Quiz Complete!</h2>
+          <h2 className="text-lg font-semibold">{examMode ? 'Exam Complete!' : 'Quiz Complete!'}</h2>
           <div className="mt-4 space-y-3">
             <div className="rounded-xl bg-indigo-50 p-4 dark:bg-indigo-900/20">
               <p className="text-sm text-muted">Your Score</p>
@@ -503,6 +608,36 @@ export function QuizPage() {
                       {Math.round(Object.values(questionTimings).reduce((a, b) => a + b, 0) / Object.values(questionTimings).length)}s
                     </p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {examMode && examAnalytics && (
+              <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                <p className="text-sm font-medium mb-3">Exam Analytics</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs text-muted">Answered</p>
+                    <p className="font-semibold">{examAnalytics.answeredCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Unanswered</p>
+                    <p className="font-semibold">{examAnalytics.unansweredCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted">Avg Time/Answer</p>
+                    <p className="font-semibold">{examAnalytics.avgTimeSeconds}s</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-muted">Topic Performance</p>
+                  {examAnalytics.topicBreakdown.map((topic) => (
+                    <div key={topic.name} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-slate-800/70">
+                      <span>{topic.name}</span>
+                      <span className="text-muted">{topic.correct}/{topic.total} ({topic.accuracy}%)</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -551,6 +686,13 @@ export function QuizPage() {
           <p className="mt-1 text-sm text-muted">
             {reviewQuestion.subjectName} • {reviewQuestion.topicName}
           </p>
+          <button
+            onClick={() => reportQuestion(reviewQuestion.id).catch((err) => setError(err.message))}
+            disabled={reportedQuestionIds.has(reviewQuestion.id)}
+            className="ui-btn-secondary mt-2 disabled:opacity-60"
+          >
+            {reportedQuestionIds.has(reviewQuestion.id) ? 'Question Reported' : 'Report Question'}
+          </button>
 
           {questionTimings[reviewQuestion.id] && (
             <p className="mt-2 text-xs text-muted">Time spent: {questionTimings[reviewQuestion.id]}s</p>

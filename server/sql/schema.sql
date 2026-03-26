@@ -75,8 +75,24 @@ CREATE TABLE IF NOT EXISTS mistake_items (
   correct_option TEXT NOT NULL CHECK (correct_option IN ('A', 'B', 'C', 'D')),
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'mastered')),
   retry_count INTEGER NOT NULL DEFAULT 0,
+  interval_days INTEGER NOT NULL DEFAULT 1,
+  next_review_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_reviewed_at TIMESTAMPTZ,
   mastered_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, question_id)
+);
+
+ALTER TABLE mistake_items ADD COLUMN IF NOT EXISTS interval_days INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE mistake_items ADD COLUMN IF NOT EXISTS next_review_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE mistake_items ADD COLUMN IF NOT EXISTS last_reviewed_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS question_reports (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  details TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

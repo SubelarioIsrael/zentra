@@ -1,4 +1,5 @@
 import {
+  createQuestionReport,
   createQuestion,
   createQuestionsBulk,
   createSubject,
@@ -131,6 +132,32 @@ export async function deleteQuestionHandler(req, res) {
   const id = Number(req.params.id);
   await deleteQuestion(id);
   return res.status(204).send();
+}
+
+export async function reportQuestionHandler(req, res) {
+  const questionId = Number(req.params.id);
+  const { reason, details } = req.body;
+
+  if (!questionId) {
+    return res.status(400).json({ message: 'Valid question id is required.' });
+  }
+
+  if (!String(reason || '').trim()) {
+    return res.status(400).json({ message: 'Reason is required.' });
+  }
+
+  const report = await createQuestionReport({
+    questionId,
+    userId: req.user.id,
+    reason: String(reason).trim(),
+    details: details ? String(details).trim() : null,
+  });
+
+  if (!report) {
+    return res.status(404).json({ message: 'Question not found.' });
+  }
+
+  return res.status(201).json({ report });
 }
 
 export async function uploadQuestionImageHandler(req, res) {

@@ -10,6 +10,7 @@ import {
   listQuestions,
   listSubjects,
   listTopics,
+  reportQuestionHandler,
   updateQuestionHandler,
   updateSubjectHandler,
   updateTopicHandler,
@@ -35,6 +36,7 @@ router.post('/topics/:topicId/questions', requireAuth, validateRequired(['prompt
 router.post('/topics/:topicId/questions/import', requireAuth, importQuestionsHandler);
 router.put('/questions/:id', requireAuth, validateRequired(['prompt', 'options', 'correctOption']), updateQuestionHandler);
 router.delete('/questions/:id', requireAuth, deleteQuestionHandler);
+router.post('/questions/:id/report', requireAuth, validateRequired(['reason']), reportQuestionHandler);
 
 router.post('/upload/question-image', requireAuth, uploadQuestionImageHandler);
 

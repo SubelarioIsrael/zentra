@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, ClipboardEvent, DragEvent, FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { apiRequest } from '../api/client';
 import { HelperAlert } from '../components/HelperAlert';
 import type { Subject, Topic } from '../types';
@@ -25,6 +26,20 @@ type CsvQuestionInput = {
   explanation: string;
   hint: string;
   questionImages: string[];
+};
+
+type QueuePreviewItem = {
+  id: number;
+  prompt: string;
+  topicName: string;
+  subjectName: string;
+};
+
+type ReviewQueueData = {
+  overdue: QueuePreviewItem[];
+  dueToday: QueuePreviewItem[];
+  upcoming: QueuePreviewItem[];
+  mastered: QueuePreviewItem[];
 };
 
 function parseCsv(text: string): string[][] {
@@ -170,10 +185,16 @@ export function SubjectsPage() {
   const [dragActive, setDragActive] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionRecord | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
+  const [queue, setQueue] = useState<ReviewQueueData>({ overdue: [], dueToday: [], upcoming: [], mastered: [] });
 
   useEffect(() => {
-    loadSubjects().catch((err) => setError(err.message));
+    Promise.all([loadSubjects(), loadQueuePreview()]).catch((err) => setError(err.message));
   }, []);
+
+  async function loadQueuePreview() {
+    const data = await apiRequest<ReviewQueueData>('/mistakes/queue');
+    setQueue(data);
+  }
 
   async function loadSubjects() {
     const data = await apiRequest<{ subjects: Subject[] }>('/subjects');
@@ -455,6 +476,54 @@ export function SubjectsPage() {
           Question actions need both a selected subject and topic.
         </HelperAlert>
       )}
+
+      <section className="ui-card">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold">Spaced Review Queue</h2>
+            <p className="ui-subtitle mt-1">Track due review items while you organize content.</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => loadQueuePreview().catch((err) => setError(err.message))} className="ui-btn-secondary">
+              Refresh
+            </button>
+            <Link to="/review" className="ui-btn-primary">
+              Open Review
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-900/10">
+            <p className="text-xs text-red-700 dark:text-red-300">Overdue</p>
+            <p className="text-2xl font-semibold text-red-700 dark:text-red-300">{queue.overdue.length}</p>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-900/10">
+            <p className="text-xs text-amber-700 dark:text-amber-300">Due Today</p>
+            <p className="text-2xl font-semibold text-amber-700 dark:text-amber-300">{queue.dueToday.length}</p>
+          </div>
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900/50 dark:bg-indigo-900/10">
+            <p className="text-xs text-indigo-700 dark:text-indigo-300">Upcoming</p>
+            <p className="text-2xl font-semibold text-indigo-700 dark:text-indigo-300">{queue.upcoming.length}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <p className="text-sm font-semibold">Priority Items</p>
+          {queue.overdue.length + queue.dueToday.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">No overdue or due-today items.</p>
+          ) : (
+            <ul className="mt-2 space-y-2 text-sm">
+              {[...queue.overdue, ...queue.dueToday].slice(0, 5).map((item) => (
+                <li key={item.id} className="rounded-lg bg-slate-50 px-2 py-1 dark:bg-slate-800/70">
+                  <p className="font-medium">{item.prompt}</p>
+                  <p className="text-xs text-muted">{item.subjectName} • {item.topicName}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
 
       {error && <p className="text-red-600">{error}</p>}
       {notice && <p className="text-green-600 dark:text-green-400">{notice}</p>}
