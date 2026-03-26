@@ -122,6 +122,31 @@ export async function createQuestion({ topicId, prompt, options, correctOption, 
   return requireData(result, 'Failed to create question');
 }
 
+export async function createQuestionsBulk({ topicId, questions }) {
+  const rows = questions.map((question) => {
+    const images = Array.isArray(question.questionImages)
+      ? question.questionImages.map((image) => String(image || '').trim()).filter(Boolean).slice(0, 2)
+      : [];
+
+    return {
+      topic_id: topicId,
+      prompt: question.prompt,
+      option_a: question.options.A,
+      option_b: question.options.B,
+      option_c: question.options.C,
+      option_d: question.options.D,
+      correct_option: question.correctOption,
+      image_url_1: images[0] || null,
+      image_url_2: images[1] || null,
+      explanation: question.explanation || null,
+      hint: question.hint || null,
+    };
+  });
+
+  const result = await supabase.from('questions').insert(rows).select('id');
+  return requireData(result, 'Failed to import questions');
+}
+
 export async function updateQuestion(id, { prompt, options, correctOption, explanation, hint, questionImages = [] }) {
   const images = Array.isArray(questionImages)
     ? questionImages.map((image) => String(image || '').trim()).filter(Boolean).slice(0, 2)

@@ -1,5 +1,6 @@
 import {
   createQuestion,
+  createQuestionsBulk,
   createSubject,
   createTopic,
   deleteQuestion,
@@ -69,6 +70,55 @@ export async function createQuestionHandler(req, res) {
   const topicId = Number(req.params.topicId);
   const question = await createQuestion({ topicId, ...req.body });
   return res.status(201).json({ question });
+}
+
+export async function importQuestionsHandler(req, res) {
+  const topicId = Number(req.params.topicId);
+  const { questions } = req.body;
+
+  if (!Array.isArray(questions) || !questions.length) {
+    return res.status(400).json({ message: 'questions must be a non-empty array.' });
+  }
+
+  if (questions.length > 300) {
+    return res.status(400).json({ message: 'Maximum 300 questions per import.' });
+  }
+
+  const allowedOptions = new Set(['A', 'B', 'C', 'D']);
+
+  for (let index = 0; index < questions.length; index += 1) {
+    const row = questions[index] || {};
+    const options = row.options || {};
+
+    if (!String(row.prompt || '').trim()) {
+      return res.status(400).json({ message: `Row ${index + 1}: prompt is required.` });
+    }
+
+    if (!String(options.A || '').trim() || !String(options.B || '').trim() || !String(options.C || '').trim() || !String(options.D || '').trim()) {
+      return res.status(400).json({ message: `Row ${index + 1}: options A, B, C, and D are required.` });
+    }
+
+    if (!allowedOptions.has(String(row.correctOption || '').toUpperCase())) {
+      return res.status(400).json({ message: `Row ${index + 1}: correctOption must be A, B, C, or D.` });
+    }
+  }
+
+  const normalizedQuestions = questions.map((row) => ({
+    prompt: String(row.prompt || '').trim(),
+    options: {
+      A: String(row.options?.A || '').trim(),
+      B: String(row.options?.B || '').trim(),
+      C: String(row.options?.C || '').trim(),
+      D: String(row.options?.D || '').trim(),
+    },
+    correctOption: String(row.correctOption || '').toUpperCase(),
+    explanation: row.explanation ? String(row.explanation).trim() : '',
+    hint: row.hint ? String(row.hint).trim() : '',
+    questionImages: Array.isArray(row.questionImages) ? row.questionImages : [],
+  }));
+
+  const inserted = await createQuestionsBulk({ topicId, questions: normalizedQuestions });
+  return res.status(201).json({ importedCount: inserted.length });
 }
 
 export async function updateQuestionHandler(req, res) {

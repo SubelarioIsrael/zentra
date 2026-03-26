@@ -1,0 +1,548 @@
+[
+  {
+    "q_no": 1,
+    "prompt": "Which of the following is always true for two (2) sets A and B? Here, (X ∩ Y) represents the set that contains only the elements that are in both X and Y (intersection set), and (X ∪ Y) represents the set that contains all of the elements that are in at least one of X or Y (union set).",
+    "options": {
+      "A": "(A ∩ B) is a subset of the complement of (A ∪ B).",
+      "B": "(A ∩ B) is a subset of A.",
+      "C": "(A ∩ B) is a subset of (A ∪ B).",
+      "D": "(A ∩ B) is a subset of the complement of A."
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 2,
+    "prompt": "Which of the following is the binary number that is obtained by adding the binary numbers 01011010 and 01101011? Here, the binary numbers are expressed as positive 8-bit values.",
+    "options": {
+      "A": "00110001",
+      "B": "01111011",
+      "C": "10000100",
+      "D": "11000101"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 3,
+    "prompt": "Which of the following is the combination of the mean and median of the data? Data: 10, 20, 20, 20, 40, 50, 100, 440, 2000",
+    "options": {
+      "A": "Mean: 20, Median: 40",
+      "B": "Mean: 40, Median: 20",
+      "C": "Mean: 300, Median: 20",
+      "D": "Mean: 300, Median: 40"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 4,
+    "prompt": "Which of the following is the appropriate description concerning the prefix of the International System of Units (SI) that is used to indicate CPU clock frequency, communication speed, and other such things?",
+    "options": {
+      "A": "G multiplied by 10 to the power of 6 is T.",
+      "B": "M multiplied by 10 to the power of 3 is G.",
+      "C": "M multiplied by 10 to the power of 6 is G.",
+      "D": "T multiplied by 10 to the power of 3 is G."
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 5,
+    "prompt": "There is a desk that can hold at most four (4) files. On this desk, six (6) files A through F are used for a job. When the fifth file needs to be put on the desk, the file with the longest time since the last use among the four (4) will be put in a drawer. If the files are put on the desk and referenced in order of A, B, C, D, E, C, B, D, F, B, which of the following is the last file to be put in the drawer?",
+    "options": {
+      "A": "A",
+      "B": "B",
+      "C": "D",
+      "D": "E"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 6,
+    "prompt": "At a certain company, employees get a medical allowance equal to 5% of their monthly base salary in addition to their monthly base salary. If the total of the monthly base salary and medical allowance is more than 5,000, a 20% tax is deducted from the total. In the program below, the function calculateTotalSal receives the monthly base salary as an argument and returns the monthly total salary after tax deduction. Which of the following is the correct combination of pieces of code to be inserted into ___A___ and ___B___ in the program? Here, the monthly base salary is a multiple of 100.",
+    "options": {
+      "A": "A = 5000, B = 0.2",
+      "B": "A = 5000, B = 0.8",
+      "C": "A = 5250, B = 0.2",
+      "D": "A = 5250, B = 0.8"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 7,
+    "prompt": "Which of the following is the appropriate way for extracting data from a stack that stores multiple data?",
+    "options": {
+      "A": "Data is extracted from an arbitrary location that is specified, regardless of the sequence that data is stored in.",
+      "B": "Data that was stored last is extracted first.",
+      "C": "Data that was stored first is extracted first.",
+      "D": "Data has a key, and it is extracted according to the priority of the key."
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 8,
+    "prompt": "In the program below, the function subTotal receives an integer array inputarr as an argument, returns an array arr in which the sum of all elements of original array inputarr up to that location is stored in the same location. Which of the following is the correct combination of pieces of code to be inserted into ___A___ and ___B___ in the program. Here, the size of the array inputarr is greater than 1, and elements outside the bounds of the array must not be accessed, and the array index starts at 1.",
+    "options": {
+      "A": "A = 1, B = arr[i + 1]",
+      "B": "A = 1, B = arr[i - 1]",
+      "C": "A = 2, B = arr[i + 1]",
+      "D": "A = 2, B = arr[i - 1]"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 9,
+    "prompt": "Which of the following is the explanation of a characteristic of hypertext?",
+    "options": {
+      "A": "It has a function for the creation and editing of a range of expressions.",
+      "B": "It has a function for the creation and editing of a range of shapes.",
+      "C": "It provides a range of templates, and enables their use.",
+      "D": "It has a mechanism that enables relevant information to be accessed by embedding a link in any position in a text."
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 10,
+    "prompt": "Which of the following is designed to virtually reduce the time for the CPU to access the main memory, in order to improve the processing efficiency of a PC?",
+    "options": {
+      "A": "SSD",
+      "B": "Virtual memory",
+      "C": "Cache memory",
+      "D": "Defragmentation"
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 11,
+    "prompt": "Which of the following is the most appropriate description concerning a compatible CPU?",
+    "options": {
+      "A": "It can run the same OS or the application software that can be run on the original CPU.",
+      "B": "It must not be developed nor manufactured as long as the patents of the original CPU are valid.",
+      "C": "A compatible CPU for single-core CPU has been developed, while one for multi-core CPU does not exist.",
+      "D": "It is a CPU that is intended to improve the performance of an outdated PC, and is not adopted for a new model of PC."
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 12,
+    "prompt": "In the description below concerning the connection between a PC and a peripheral device, which of the following is the appropriate combination of words to be inserted into blanks A and B? The connection of a new peripheral device to a PC requires (A), but if a peripheral device that supports (B) function is connected, the device driver is installed automatically and the device can be used.",
+    "options": {
+      "A": "device driver, plug and play",
+      "B": "device driver, plugin",
+      "C": "malware, plug and play",
+      "D": "malware, plugin"
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 13,
+    "prompt": "There is an IoT system that automatically opens and closes the water gate for a rice field by measuring the water level in the rice field. Which of the following is the appropriate combination of terms to be inserted into blanks A and B in the figure?",
+    "options": {
+      "A": "Actuator, IoT gateway",
+      "B": "Actuator, Sensor",
+      "C": "Sensor, IoT gateway",
+      "D": "Sensor, Actuator"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 14,
+    "prompt": "The system configurations A through C are made up by connecting multiple identical devices. Which of the following is the list where A through C are sorted in descending order of availability? Here, the parallel connection requires only one of the devices to be functional, while the series connection requires all devices to be functional.",
+    "options": {
+      "A": "A, B, C",
+      "B": "B, A, C",
+      "C": "C, A, B",
+      "D": "C, B, A"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 15,
+    "prompt": "When the processing speed of the system overall is constrained because of slow processing speed in one of the components, which of the following is the term for the component that is causing the problem?",
+    "options": {
+      "A": "Throughput",
+      "B": "Defragmentation",
+      "C": "Flowchart",
+      "D": "Bottleneck"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 16,
+    "prompt": "Among the descriptions A through C below concerning the effects that are obtained by simultaneously running multiple virtual servers on one physical computer, which of the following lists all and only the appropriate descriptions? A: Each virtual server can run an OS with a different version, and the resources of the physical computer can be utilized effectively. B: The throughput that is gained when the number of virtual servers is increased is the same as when the number of physical computers is increased by the same number. C: A volume of data that is the same as the capacity of the HDD on the physical computer can be simultaneously recorded on all of the virtual servers.",
+    "options": {
+      "A": "A",
+      "B": "A, C",
+      "C": "B",
+      "D": "C"
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 17,
+    "prompt": "Which of the following is the appropriate explanation of a deadlock?",
+    "options": {
+      "A": "It is a state in which the processes of a computer are prohibited from getting any access including accidental access to information that must not be accessed.",
+      "B": "It is a state in which, if the login attempt of a user fails more than a predefined number of times, the user is prohibited from logging in to the computer for a predefined time period or until the system administrator resets the user account.",
+      "C": "It is a state in which, when common resources are exclusively used, two or more processes are endlessly waiting for each other to release the resources they are occupying.",
+      "D": "It is a state in which processes in the ready state under a multi-programming environment have used up the CPU time allocated by the OS."
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 18,
+    "prompt": "In a web server, five directories have a hierarchical structure. In an HTML document stored in directory B, which of the following references the file img.jpg stored in directory E? Here, directories and files are referenced using relative path rules including '.' for current directory and '..' for parent directory.",
+    "options": {
+      "A": "../A/D/E/img.jpg",
+      "B": "../D/E/img.jpg",
+      "C": "./A/D/E/img.jpg",
+      "D": "./D/E/img.jpg"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 19,
+    "prompt": "There is a system where a full backup is made after closing time every Sunday, and an incremental backup is made after closing time on Monday through Saturday. On a Wednesday, a failure happened during business hours, and restoration to Tuesday closing time is required. Which backup files are necessary?",
+    "options": {
+      "A": "Full backup Sunday + incremental Monday and Tuesday",
+      "B": "Full backup Sunday + incremental Tuesday",
+      "C": "Incremental Monday and Tuesday",
+      "D": "Incremental Tuesday only"
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 20,
+    "prompt": "Which of the following is the appropriate description concerning Open Source Software (OSS)?",
+    "options": {
+      "A": "Source code can be edited and then redistributed.",
+      "B": "Source code is free of charge, but maintenance and support are charged.",
+      "C": "Copyrights are waived, so it can be used without permission.",
+      "D": "If the copyright is not waived, the operability must be warranted."
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 21,
+    "prompt": "Spreadsheet software is used to predict sales according to the weather. The probability for each weather type (sunny, cloudy, rainy) and the predicted sales amount for each product are given. An expression is entered in cell E4 and copied downward. Which of the following is the appropriate expression to calculate the predicted sales amount?",
+    "options": {
+      "A": "B2*B4+C2*C4+D2*D4",
+      "B": "B$2*B4+C$2*C4+D$2*D4",
+      "C": "$B2*B$4+$C2*C$4+$D2*D$4",
+      "D": "$B$2*$B$4+$C$2*$C$4+$D$2*$D$4"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 22,
+    "prompt": "Which of the following is the appropriate description of multithreading?",
+    "options": {
+      "A": "Equipping a CPU with multiple cores",
+      "B": "Using external storage to extend memory",
+      "C": "Dividing one application into multiple process units and processing them in parallel",
+      "D": "Writing data across multiple disks in parallel"
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 23,
+    "prompt": "Which of the following is the appropriate role of OCR?",
+    "options": {
+      "A": "Wireless communication within 10 cm",
+      "B": "Recognizing printed/handwritten characters and converting to text",
+      "C": "Generating artificial voice",
+      "D": "Detecting touch input on panels"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 24,
+    "prompt": "Which function aids keyboard input by suggesting candidates based on past input?",
+    "options": {
+      "A": "Indentation",
+      "B": "Autocomplete",
+      "C": "Autofilter",
+      "D": "Hyperlink"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 25,
+    "prompt": "In a smart speaker process, which step corresponds to voice recognition? (1) Convert voice to text (2) Analyze meaning (3) Generate response (4) Read aloud",
+    "options": {
+      "A": "(1)",
+      "B": "(2)",
+      "C": "(3)",
+      "D": "(4)"
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 26,
+    "prompt": "In building a relational database, what is the correct order? A: Identify data items B: Create tables C: Insert records",
+    "options": {
+      "A": "A → B → C",
+      "B": "A → C → B",
+      "C": "B → A → C",
+      "D": "B → C → A"
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 27,
+    "prompt": "When normalizing Purchase_list into Purchase and Product tables, which field should be common?",
+    "options": {
+      "A": "Purchase_number",
+      "B": "Payment_method",
+      "C": "Product_number",
+      "D": "Product_name"
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 28,
+    "prompt": "What is rollback in transaction processing?",
+    "options": {
+      "A": "Prevent concurrent updates",
+      "B": "Commit successful transaction",
+      "C": "Revert database to previous state after failure",
+      "D": "Join tables"
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 29,
+    "prompt": "What is the purpose of exclusive control in DBMS?",
+    "options": {
+      "A": "Prevent tampering",
+      "B": "Separate data and programs",
+      "C": "Restrict access by users",
+      "D": "Prevent inconsistency during concurrent access"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 30,
+    "prompt": "What is the POP protocol?",
+    "options": {
+      "A": "Remote terminal control",
+      "B": "File transfer",
+      "C": "Send email to server",
+      "D": "Receive email from server"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 31,
+    "prompt": "Which of the following is the file storage on the Internet that can be freely written to and read from over the Internet and can be used for saving files in place of USB memory or other such media?",
+    "options": {
+      "A": "Cookie",
+      "B": "RAID",
+      "C": "Online storage",
+      "D": "Crawler"
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 32,
+    "prompt": "Which of the following is the appropriate description of a SIM card?",
+    "options": {
+      "A": "A card-type device used for generating one-time passwords for Internet banking",
+      "B": "An IC card inserted into a mobile phone that stores phone number and subscriber ID",
+      "C": "A large-capacity memory card for digital music players or cameras",
+      "D": "A card used for decoding scrambled digital broadcasting"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 33,
+    "prompt": "Which of the following mobile communication systems not only offers higher communication speed than LTE, but also allows more devices to connect and has less lag time?",
+    "options": {
+      "A": "Block chain",
+      "B": "MVNO",
+      "C": "8K",
+      "D": "5G"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 34,
+    "prompt": "Which of the following is the most appropriate description of edge computing in an IoT system?",
+    "options": {
+      "A": "Perform data processing close to IoT devices to reduce server load",
+      "B": "Link data blocks using hash values to prevent tampering",
+      "C": "Aggregate computing resources in a data center and use remotely",
+      "D": "Enable computers to learn patterns from data without explicit programming"
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 35,
+    "prompt": "Which of the following is the appropriate description concerning virus infection?",
+    "options": {
+      "A": "Infection may affect OS, applications, and firmware",
+      "B": "No infection occurs if only external media is used",
+      "C": "Keep infected computer connected and update software",
+      "D": "No infection occurs if email attachments are not opened"
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 36,
+    "prompt": "Which of the following is the appropriate combination of threats? (i) malicious script executed on visitor browser (ii) coordinated attack via infected PCs (iii) disguised malicious program",
+    "options": {
+      "A": "Cross-site scripting, Trojan horse, Bot",
+      "B": "Cross-site scripting, Bot, Trojan horse",
+      "C": "Targeted attack, Cross-site scripting, Trojan horse",
+      "D": "Targeted attack, Trojan horse, Cross-site scripting"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 37,
+    "prompt": "A file cannot be saved due to permission error. Which permission combination is correct?",
+    "options": {
+      "A": "File read: Yes, File write: Yes, Folder read: No",
+      "B": "File read: Yes, File write: No, Folder read: Yes",
+      "C": "File read: No, File write: Yes, Folder read: No",
+      "D": "File read: No, File write: No, Folder read: Yes"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 38,
+    "prompt": "What is the risk of using a self-created digital certificate instead of a trusted CA?",
+    "options": {
+      "A": "Cannot verify sender authenticity",
+      "B": "Higher risk of interception",
+      "C": "Higher risk of loss",
+      "D": "Higher risk of corruption"
+    },
+    "correct": "A"
+  },
+  {
+    "q_no": 39,
+    "prompt": "Which of the following is correct about risk management categories?",
+    "options": {
+      "A": "Buying insurance is risk transfer",
+      "B": "Assets classification is risk mitigation",
+      "C": "Avoiding risk is evaluation method",
+      "D": "Quantifying vulnerability is risk retention"
+    },
+    "correct": "A"
+  },
+  {
+    "prompt": "What is the function of a guest SSID in a wireless LAN router?",
+    "options": {
+      "A": "Allows Internet access only, not internal network",
+      "B": "Checks malware before connection",
+      "C": "Connects via button operation",
+      "D": "Allows connection without SSID knowledge"
+    },
+    "correct": "A"
+  },
+  {
+    "prompt": "Which of the following is the appropriate description concerning cloud computing?",
+    "options": {
+      "A": "A service that allows on-demand usage of computing resources via Internet",
+      "B": "A local storage device connected to multiple computers",
+      "C": "An OS for mobile devices",
+      "D": "A method of encrypting files for security"
+    },
+    "correct": "A"
+  },
+  {
+    "prompt": "Which of the following is the appropriate description of file system permissions?",
+    "options": {
+      "A": "Permissions define which users can read, write, or execute files",
+      "B": "Permissions are used to encrypt files",
+      "C": "Permissions are used to compress files",
+      "D": "Permissions are set automatically and cannot be modified"
+    },
+    "correct": "A"
+  },
+  {
+    "prompt": "Which of the following correctly describes phishing?",
+    "options": {
+      "A": "Fraudulent attempt to obtain sensitive information by impersonating a trustworthy entity",
+      "B": "Virus attack from email attachments",
+      "C": "Unauthorized modification of software",
+      "D": "Network congestion caused by multiple users"
+    },
+    "correct": "C"
+  },
+  {
+    "prompt": "Which of the following is the most appropriate description of backup?",
+    "options": {
+      "A": "Real-time copying of files to another folder",
+      "B": "Saving only system files",
+      "C": "Copying data to a separate storage to prevent loss",
+      "D": "Compressing files to save space"
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 45,
+    "prompt": "Which of the following is an appropriate measure against malware?",
+    "options": {
+      "A": "Using strong passwords",
+      "B": "Installing antivirus and updating definitions",
+      "C": "Regularly formatting the hard drive",
+      "D": "Limiting network usage"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 46,
+    "prompt": "Which of the following is the appropriate description concerning a firewall?",
+    "options": {
+      "A": "Encrypts data sent over the network",
+      "B": "Filters incoming and outgoing network traffic based on security rules",
+      "C": "Stores backup of network configuration",
+      "D": "Monitors user behavior on a device"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 47,
+    "prompt": "Which of the following is correct concerning two-factor authentication?",
+    "options": {
+      "A": "Requires two different forms of verification",
+      "B": "Requires a password only",
+      "C": "Requires fingerprint only",
+      "D": "Requires no authentication for convenience"
+    },
+    "correct": "B"
+  },
+  {
+    "q_no": 48,
+    "prompt": "Which of the following is the appropriate description concerning encryption?",
+    "options": {
+      "A": "Converts plaintext into ciphertext to prevent unauthorized access",
+      "B": "Stores data in the cloud",
+      "C": "Compresses files to save storage",
+      "D": "Sends data without verification"
+    },
+    "correct": "D"
+  },
+  {
+    "q_no": 49,
+    "prompt": "Which of the following is the appropriate description concerning malware scanning?",
+    "options": {
+      "A": "Automatically updates the OS",
+      "B": "Detects and removes malicious programs",
+      "C": "Monitors network traffic",
+      "D": "Prevents hardware failure"
+    },
+    "correct": "C"
+  },
+  {
+    "q_no": 50,
+    "prompt": "Which of the following is correct concerning secure passwords?",
+    "options": {
+      "A": "Long, complex passwords that are difficult to guess",
+      "B": "Short passwords for convenience",
+      "C": "Passwords reused across multiple services",
+      "D": "Simple numeric passwords"
+    },
+    "correct": "A"
+  }
+
+]

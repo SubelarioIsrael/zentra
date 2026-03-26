@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { ChangeEvent, ClipboardEvent, DragEvent, FormEvent } from 'react';
 import { apiRequest } from '../api/client';
 import { HelperAlert } from '../components/HelperAlert';
 import type { Subject, Topic } from '../types';
@@ -18,6 +18,137 @@ type QuestionRecord = {
   hint?: string | null;
 };
 
+type CsvQuestionInput = {
+  prompt: string;
+  options: { A: string; B: string; C: string; D: string };
+  correctOption: 'A' | 'B' | 'C' | 'D';
+  explanation: string;
+  hint: string;
+  questionImages: string[];
+};
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let currentCell = '';
+  let currentRow: string[] = [];
+  let insideQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const nextChar = text[index + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentCell += '"';
+        index += 1;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !insideQuotes) {
+      currentRow.push(currentCell.trim());
+      currentCell = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !insideQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        index += 1;
+      }
+      currentRow.push(currentCell.trim());
+      rows.push(currentRow);
+      currentCell = '';
+      currentRow = [];
+      continue;
+    }
+
+    currentCell += char;
+  }
+
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    rows.push(currentRow);
+  }
+
+  return rows;
+}
+
+function normalizeHeader(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function parseCsvQuestions(text: string): CsvQuestionInput[] {
+  const rows = parseCsv(text).filter((row) => row.some((cell) => String(cell || '').trim() !== ''));
+
+  if (rows.length < 2) {
+    throw new Error('CSV must include a header row and at least one question row.');
+  }
+
+  const headers = rows[0].map((value) => normalizeHeader(value));
+
+  const findHeaderIndex = (aliases: string[]) => headers.findIndex((header) => aliases.includes(header));
+
+  const headerMap = {
+    prompt: findHeaderIndex(['prompt', 'question', 'questiontext']),
+    optionA: findHeaderIndex(['optiona', 'a']),
+    optionB: findHeaderIndex(['optionb', 'b']),
+    optionC: findHeaderIndex(['optionc', 'c']),
+    optionD: findHeaderIndex(['optiond', 'd']),
+    correctOption: findHeaderIndex(['correctoption', 'correct', 'answer']),
+    explanation: findHeaderIndex(['explanation']),
+    hint: findHeaderIndex(['hint']),
+    imageUrl1: findHeaderIndex(['imageurl1', 'image1']),
+    imageUrl2: findHeaderIndex(['imageurl2', 'image2']),
+  };
+
+  const requiredHeaders = ['prompt', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_option'];
+  const hasRequiredHeaders =
+    headerMap.prompt !== -1 &&
+    headerMap.optionA !== -1 &&
+    headerMap.optionB !== -1 &&
+    headerMap.optionC !== -1 &&
+    headerMap.optionD !== -1 &&
+    headerMap.correctOption !== -1;
+
+  if (!hasRequiredHeaders) {
+    throw new Error(`CSV is missing required headers. Required: ${requiredHeaders.join(', ')}`);
+  }
+
+  return rows.slice(1).map((row, rowIndex) => {
+    const prompt = String(row[headerMap.prompt] || '').trim();
+    const optionA = String(row[headerMap.optionA] || '').trim();
+    const optionB = String(row[headerMap.optionB] || '').trim();
+    const optionC = String(row[headerMap.optionC] || '').trim();
+    const optionD = String(row[headerMap.optionD] || '').trim();
+    const correctOption = String(row[headerMap.correctOption] || '').trim().toUpperCase() as 'A' | 'B' | 'C' | 'D';
+
+    if (!prompt || !optionA || !optionB || !optionC || !optionD || !['A', 'B', 'C', 'D'].includes(correctOption)) {
+      throw new Error(`Invalid data in CSV row ${rowIndex + 2}.`);
+    }
+
+    const questionImages = [
+      headerMap.imageUrl1 !== -1 ? String(row[headerMap.imageUrl1] || '').trim() : '',
+      headerMap.imageUrl2 !== -1 ? String(row[headerMap.imageUrl2] || '').trim() : '',
+    ].filter(Boolean);
+
+    return {
+      prompt,
+      options: {
+        A: optionA,
+        B: optionB,
+        C: optionC,
+        D: optionD,
+      },
+      correctOption,
+      explanation: headerMap.explanation !== -1 ? String(row[headerMap.explanation] || '').trim() : '',
+      hint: headerMap.hint !== -1 ? String(row[headerMap.hint] || '').trim() : '',
+      questionImages,
+    };
+  });
+}
+
 export function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -31,9 +162,11 @@ export function SubjectsPage() {
   const [hint, setHint] = useState('');
   const [questionImages, setQuestionImages] = useState<{ url: string; fileName: string }[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [importingCsv, setImportingCsv] = useState(false);
   const [options, setOptions] = useState({ A: '', B: '', C: '', D: '' });
   const [correctOption, setCorrectOption] = useState<'A' | 'B' | 'C' | 'D'>('A');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [dragActive, setDragActive] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<QuestionRecord | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
@@ -81,6 +214,7 @@ export function SubjectsPage() {
   async function createTopic(event: FormEvent) {
     event.preventDefault();
     if (!subjectId || !topicName.trim()) {
+      setNotice('');
       setError('Pick a subject first before adding a topic.');
       return;
     }
@@ -92,10 +226,12 @@ export function SubjectsPage() {
   async function createQuestion(event: FormEvent) {
     event.preventDefault();
     if (!subjectId || !topicId) {
+      setNotice('');
       setError('To add a question, select a subject and then a topic first.');
       return;
     }
 
+    setNotice('');
     await apiRequest(`/topics/${topicId}/questions`, 'POST', {
       prompt: questionPrompt,
       options,
@@ -111,7 +247,41 @@ export function SubjectsPage() {
     setQuestionImages([]);
     setOptions({ A: '', B: '', C: '', D: '' });
     setCorrectOption('A');
+    setNotice('Question added.');
     await selectTopic(topicId);
+  }
+
+  async function handleCsvUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!topicId) {
+      setNotice('');
+      setError('Pick a topic before importing questions.');
+      event.target.value = '';
+      return;
+    }
+
+    setError('');
+    setNotice('');
+    setImportingCsv(true);
+
+    try {
+      const csvText = await file.text();
+      const parsedQuestions = parseCsvQuestions(csvText);
+
+      const response = await apiRequest<{ importedCount: number }>(`/topics/${topicId}/questions/import`, 'POST', {
+        questions: parsedQuestions,
+      });
+
+      setNotice(`Imported ${response.importedCount} question(s) from CSV.`);
+      await selectTopic(topicId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'CSV import failed.');
+    } finally {
+      setImportingCsv(false);
+      event.target.value = '';
+    }
   }
 
   async function processImageFile(file: File) {
@@ -170,13 +340,13 @@ export function SubjectsPage() {
     }
   }
 
-  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     await processImageFile(file);
   }
 
-  function handlePaste(event: React.ClipboardEvent<HTMLDivElement>) {
+  function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
     const items = event.clipboardData?.items;
     if (!items) return;
 
@@ -192,19 +362,19 @@ export function SubjectsPage() {
     }
   }
 
-  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
     setDragActive(true);
   }
 
-  function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
     setDragActive(false);
   }
 
-  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     event.stopPropagation();
     setDragActive(false);
@@ -287,6 +457,7 @@ export function SubjectsPage() {
       )}
 
       {error && <p className="text-red-600">{error}</p>}
+      {notice && <p className="text-green-600 dark:text-green-400">{notice}</p>}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="ui-card">
@@ -355,6 +526,24 @@ export function SubjectsPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <div>
             <form onSubmit={createQuestion} className="grid gap-2">
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                <p className="text-sm font-medium">Import questions from CSV</p>
+                <p className="ui-subtitle mt-1">
+                  Required headers: prompt, option_a, option_b, option_c, option_d, correct_option.
+                </p>
+                <p className="ui-subtitle">Optional: explanation, hint, image_url_1, image_url_2.</p>
+                <label className="ui-btn-secondary mt-3 inline-block cursor-pointer">
+                  {importingCsv ? 'Importing CSV...' : 'Choose CSV file'}
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={handleCsvUpload}
+                    disabled={importingCsv || !topicId}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
               <textarea
                 value={questionPrompt}
                 onChange={(e) => setQuestionPrompt(e.target.value)}

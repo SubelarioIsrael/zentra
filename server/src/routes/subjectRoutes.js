@@ -6,6 +6,7 @@ import {
   deleteQuestionHandler,
   deleteSubjectHandler,
   deleteTopicHandler,
+  importQuestionsHandler,
   listQuestions,
   listSubjects,
   listTopics,
@@ -31,6 +32,7 @@ router.delete('/topics/:id', requireAuth, deleteTopicHandler);
 
 router.get('/topics/:topicId/questions', requireAuth, listQuestions);
 router.post('/topics/:topicId/questions', requireAuth, validateRequired(['prompt', 'options', 'correctOption']), createQuestionHandler);
+router.post('/topics/:topicId/questions/import', requireAuth, importQuestionsHandler);
 router.put('/questions/:id', requireAuth, validateRequired(['prompt', 'options', 'correctOption']), updateQuestionHandler);
 router.delete('/questions/:id', requireAuth, deleteQuestionHandler);
 
