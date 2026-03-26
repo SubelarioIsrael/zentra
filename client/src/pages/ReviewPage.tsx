@@ -37,13 +37,36 @@ type QueueData = {
   mastered: QueueItem[];
 };
 
+type UiError = {
+  title: string;
+  message: string;
+  hint?: string;
+};
+
 export function ReviewPage() {
   const [mode, setMode] = useState<'open' | 'mastered' | 'all'>('open');
   const [items, setItems] = useState<MistakeItem[]>([]);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
   const [busyItemId, setBusyItemId] = useState<number | null>(null);
   const [queue, setQueue] = useState<QueueData>({ overdue: [], dueToday: [], upcoming: [], mastered: [] });
-  const [error, setError] = useState('');
+  const [uiError, setUiError] = useState<UiError | null>(null);
+
+  function toUiError(err: unknown, fallbackTitle: string): UiError {
+    const rawMessage = err instanceof Error ? err.message : 'Something went wrong.';
+
+    if (rawMessage === 'Request failed') {
+      return {
+        title: fallbackTitle,
+        message: 'We could not load data right now.',
+        hint: 'If this started after recent updates, restart the server and apply the latest SQL migration.',
+      };
+    }
+
+    return {
+      title: fallbackTitle,
+      message: rawMessage,
+    };
+  }
 
   async function loadItems(selectedMode: 'open' | 'mastered' | 'all') {
     const data = await apiRequest<{ items: MistakeItem[] }>(`/mistakes?status=${selectedMode}`);
@@ -56,23 +79,26 @@ export function ReviewPage() {
   }
 
   useEffect(() => {
-    setError('');
+    setUiError(null);
     loadItems(mode)
-      .catch((err) => setError(err.message));
+      .catch((err) => setUiError(toUiError(err, 'Could not load notebook items')));
   }, [mode]);
 
   useEffect(() => {
-    loadQueue().catch((err) => setError(err.message));
+    loadQueue().catch((err) => setUiError(toUiError(err, 'Could not load spaced review queue')));
   }, []);
 
   async function retryItem(item: MistakeItem) {
     const answer = selectedAnswers[item.id];
     if (!answer) {
-      setError('Select an answer before retrying.');
+      setUiError({
+        title: 'Select an answer first',
+        message: 'Pick A, B, C, or D before pressing Retry.',
+      });
       return;
     }
 
-    setError('');
+    setUiError(null);
     setBusyItemId(item.id);
 
     try {
@@ -97,14 +123,14 @@ export function ReviewPage() {
       );
       await loadQueue();
     } catch (err) {
-      setError((err as Error).message);
+      setUiError(toUiError(err, 'Retry failed'));
     } finally {
       setBusyItemId(null);
     }
   }
 
   async function markMastered(itemId: number) {
-    setError('');
+    setUiError(null);
     setBusyItemId(itemId);
     try {
       await apiRequest(`/mistakes/${itemId}`, 'PUT', { status: 'mastered' });
@@ -121,7 +147,7 @@ export function ReviewPage() {
       );
       await loadQueue();
     } catch (err) {
-      setError((err as Error).message);
+      setUiError(toUiError(err, 'Could not mark item as mastered'));
     } finally {
       setBusyItemId(null);
     }
@@ -138,7 +164,7 @@ export function ReviewPage() {
       <section className="ui-card space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Spaced Review Queue</h2>
-          <button onClick={() => loadQueue().catch((err) => setError(err.message))} className="ui-btn-secondary">
+          <button onClick={() => loadQueue().catch((err) => setUiError(toUiError(err, 'Could not refresh queue')))} className="ui-btn-secondary">
             Refresh Queue
           </button>
         </div>
@@ -234,7 +260,32 @@ export function ReviewPage() {
         </button>
       </div>
 
-      {error && <p className="text-red-600">{error}</p>}
+      {uiError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm dark:border-red-900/60 dark:bg-red-900/20">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-red-700 dark:text-red-300">{uiError.title}</p>
+              <p className="mt-1 text-red-700/90 dark:text-red-200">{uiError.message}</p>
+              {uiError.hint && <p className="mt-2 text-red-700/80 dark:text-red-200/90">{uiError.hint}</p>}
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => {
+                    Promise.all([loadItems(mode), loadQueue()]).catch((err) =>
+                      setUiError(toUiError(err, 'Still unable to load review data')),
+                    );
+                  }}
+                  className="ui-btn-secondary"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+            <button onClick={() => setUiError(null)} className="ui-btn-secondary">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {items.map((item) => (
